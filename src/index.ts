@@ -38,7 +38,7 @@ const app = new Elysia()
 	)
 
 	.use(school)
-	.listen(3000);
+	.listen(process.env.PORT ?? 3000);
 
 console.log(`
 🍤 Slunch-V2 backend is running at ${app.server!.url}
