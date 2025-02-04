@@ -14,10 +14,10 @@ const app = new Elysia()
 					version: '1.0.0',
 				},
 				servers: [
-					// {
-					// 	url: 'https://slunch-v2.ny64.kr',
-					// 	description: 'Production server',
-					// },
+					{
+						url: 'https://slunch-v2.ny64.kr',
+						description: 'Production server',
+					},
 					{
 						url: 'http://localhost:3000',
 						description: 'Local server',
