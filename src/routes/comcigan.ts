@@ -3,7 +3,7 @@ import Comcigan, { School, Weekday } from 'comcigan.ts';
 
 const comcigan = new Comcigan();
 
-const app = new Elysia({ prefix: '/school', tags: ['학교'] })
+const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
 	.get(
 		'/search',
 		async ({ query }) => {
