@@ -7,7 +7,7 @@ const app = new Elysia({ prefix: '/school', tags: ['학교'] })
 	.get(
 		'/search',
 		async ({ query }) => {
-			if (!query.schoolName) throw error(400, '학교 이름을 입력해주세요.');
+			if (!query.schoolName) throw error(400, { message: '학교 이름을 입력해주세요.' });
 			const searchedSchools: School[] = await comcigan.searchSchools(query.schoolName);
 
 			return searchedSchools
@@ -20,7 +20,7 @@ const app = new Elysia({ prefix: '/school', tags: ['학교'] })
 		},
 		{
 			query: t.Object({
-				schoolName: t.String({ description: '학교 이름', error: { message: '학교 이름을 입력해주세요.' } }),
+				schoolName: t.String({ description: '학교 이름', error: { message: '학교 이름은 문자열이어야 해요.' } }),
 			}),
 			detail: { summary: '학교 검색' },
 			response: {
@@ -40,6 +40,9 @@ const app = new Elysia({ prefix: '/school', tags: ['학교'] })
 		'/timetable',
 		async ({ query }) => {
 			const { schoolCode, grade, class: classNum, weekday } = query;
+			if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
+			if (!grade) throw error(400, '학년을 입력해주세요.');
+			if (!classNum) throw error(400, '반을 입력해주세요.');
 
 			try {
 				const timetable = weekday ? await comcigan.getTimetable(schoolCode, grade, classNum, weekday as never as Weekday) : await comcigan.getTimetable(schoolCode, grade, classNum);
@@ -54,10 +57,10 @@ const app = new Elysia({ prefix: '/school', tags: ['학교'] })
 		},
 		{
 			query: t.Object({
-				schoolCode: t.Number({ description: '학교 코드', error: { message: '학교 코드를 입력해주세요.' } }),
-				grade: t.Number({ description: '학년', error: { message: '학년을 입력해주세요.' } }),
-				class: t.Number({ description: '반', error: { message: '반을 입력해주세요.' } }),
-				weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined, error: { message: '요일을 입력해주세요.' } })),
+				schoolCode: t.Number({ description: '학교 코드', error: { message: '학교 코드는 숫자여야 해요.' } }),
+				grade: t.Number({ description: '학년', error: { message: '학년은 숫자여야 해요.' } }),
+				class: t.Number({ description: '반', error: { message: '반은 숫자여야 해요.' } }),
+				weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined, error: { message: '요일은 1부터 5까지의 숫자여야 해요.' } })),
 			}),
 			detail: { summary: '시간표 조회' },
 			response: {
@@ -125,6 +128,7 @@ const app = new Elysia({ prefix: '/school', tags: ['학교'] })
 		'/classList',
 		async ({ query }) => {
 			const { schoolCode } = query;
+			if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
 
 			try {
 				const timetable = await comcigan.getTimetable(schoolCode);
@@ -142,7 +146,7 @@ const app = new Elysia({ prefix: '/school', tags: ['학교'] })
 		},
 		{
 			query: t.Object({
-				schoolCode: t.Number({ description: '학교 코드', error: { message: '학교 코드를 입력해주세요.' } }),
+				schoolCode: t.Number({ description: '학교 코드', error: { message: '학교 코드는 숫자여야 해요.' } }),
 			}),
 			detail: { summary: '반 목록 조회' },
 			response: {
