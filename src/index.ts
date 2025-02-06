@@ -2,7 +2,8 @@ import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { logger } from '@grotto/logysia';
 
-import school from './routes/school';
+import comcigan from './routes/comcigan';
+import neis from './routes/neis';
 
 const app = new Elysia()
 	.use(
@@ -37,10 +38,11 @@ const app = new Elysia()
 		})
 	)
 
-	.use(school)
+	.use(comcigan)
+	.use(neis)
 	.listen(process.env.PORT ?? 3000);
 
 console.log(`
 🍤 Slunch-V2 backend is running at ${app.server!.url}
-📄 Swagger documentation is available at ${app.server!.url}docs
+📄 Swagger documentation is available at ${app.server!.url}swagger
 `);
