@@ -121,7 +121,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 					const nutritionResponse = showNutrition ? nutrition : undefined;
 
 					return {
-						date: m.MLSV_YMD,
+						date: `${m.MLSV_YMD.slice(0, 4)}-${m.MLSV_YMD.slice(4, 6)}-${m.MLSV_YMD.slice(6, 8)}`, // YYYYMMDD -> YYYY-MM-DD
 						meal: mealResponse,
 						type: m.MMEAL_SC_NM,
 						origin: originResponse,
@@ -195,6 +195,72 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 				400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
 			},
 			detail: { summary: '급식 정보' },
+		}
+	)
+	.get(
+		'/schedule',
+		async ({ query }) => {
+			const { schoolCode, regionCode, year, month, day } = query;
+			if (!schoolCode) throw error(400, { message: '학교 코드를 입력해주세요.' });
+			if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });
+			if (!year) throw error(400, { message: '년도를 입력해주세요.' });
+			if (!month) throw error(400, { message: '월을 입력해주세요.' });
+
+			try {
+				const fetchedSchedules = await neis.getSchedule({
+					SD_SCHUL_CODE: schoolCode,
+					ATPT_OFCDC_SC_CODE: regionCode,
+					AA_YMD: `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
+				});
+
+				const schedulesMap: { [key: string]: { start: string; end: string } } = {};
+
+				fetchedSchedules.forEach((s) => {
+					if (s.EVENT_NM === '토요휴업일') return;
+
+					const formattedDate = `${s.AA_YMD.slice(0, 4)}-${s.AA_YMD.slice(4, 6)}-${s.AA_YMD.slice(6, 8)}`;
+
+					if (!schedulesMap[s.EVENT_NM]) {
+						schedulesMap[s.EVENT_NM] = { start: formattedDate, end: formattedDate };
+					} else {
+						schedulesMap[s.EVENT_NM].end = formattedDate;
+					}
+				});
+
+				const schedules = Object.entries(schedulesMap).map(([schedule, { start, end }]) => ({
+					schedule,
+					date: { start, end },
+				}));
+
+				return schedules;
+			} catch (e) {
+				const err = e as Error;
+
+				throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
+			}
+		},
+		{
+			query: t.Object({
+				schoolCode: t.String({ description: '학교 코드', error: { message: '학교 코드는 문자열이어야 해요.' } }),
+				regionCode: t.String({ description: '지역 코드', error: { message: '지역 코드는 문자열이어야 해요.' } }),
+				year: t.String({ description: '년도', error: { message: '년도는 문자열이어야 해요.' } }),
+				month: t.String({ description: '월', error: { message: '월은 문자열이어야 해요.' } }),
+				day: t.Optional(t.String({ description: '일', error: { message: '일은 문자열이어야 해요.' } })),
+			}),
+			response: {
+				200: t.Array(
+					t.Object({
+						date: t.Object({
+							start: t.String({ description: '시작 일자', default: '2025-02-06' }),
+							end: t.String({ description: '종료 일자', default: '2025-02-06' }),
+						}),
+						schedule: t.String({ description: '일정', default: '해피 버스데이 미' }),
+					}),
+					{ description: '일정 정보' }
+				),
+				400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+			},
+			detail: { summary: '일정 정보' },
 		}
 	);
 
