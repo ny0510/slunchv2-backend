@@ -29,7 +29,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 			} catch (e) {
 				const err = e as Error;
 
-				throw error(400, { message: err.message });
+				throw error(400, { message: err.message.replace(/INFO-\d+/g, '') });
 			}
 		},
 		{
