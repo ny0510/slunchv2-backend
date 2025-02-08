@@ -217,22 +217,22 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 					AA_YMD: `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
 				});
 
-				const schedulesMap: { [key: string]: { start: string; end: string } } = {};
+				const schedulesMap: { [key: string]: { start: string; end: string; schedules: string[] } } = {};
 
 				fetchedSchedules.forEach((s) => {
 					if (s.EVENT_NM === '토요휴업일') return;
 
 					const formattedDate = `${s.AA_YMD.slice(0, 4)}-${s.AA_YMD.slice(4, 6)}-${s.AA_YMD.slice(6, 8)}`;
 
-					if (!schedulesMap[s.EVENT_NM]) {
-						schedulesMap[s.EVENT_NM] = { start: formattedDate, end: formattedDate };
+					if (!schedulesMap[formattedDate]) {
+						schedulesMap[formattedDate] = { start: formattedDate, end: formattedDate, schedules: [s.EVENT_NM] };
 					} else {
-						schedulesMap[s.EVENT_NM].end = formattedDate;
+						schedulesMap[formattedDate].schedules.push(s.EVENT_NM);
 					}
 				});
 
-				const schedules = Object.entries(schedulesMap).map(([schedule, { start, end }]) => ({
-					schedule,
+				const schedules = Object.entries(schedulesMap).map(([date, { start, end, schedules }]) => ({
+					schedule: schedules.join(', '),
 					date: { start, end },
 				}));
 
