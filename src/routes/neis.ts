@@ -236,7 +236,21 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 					date: { start, end },
 				}));
 
-				return schedules;
+				const combinedSchedules = [];
+				let prevSchedule = null;
+
+				for (const schedule of schedules) {
+					if (prevSchedule && prevSchedule.schedule === schedule.schedule) {
+						prevSchedule.date.end = schedule.date.end;
+					} else {
+						if (prevSchedule) combinedSchedules.push(prevSchedule);
+						prevSchedule = schedule;
+					}
+				}
+
+				if (prevSchedule) combinedSchedules.push(prevSchedule);
+
+				return combinedSchedules;
 			} catch (e) {
 				const err = e as Error;
 				const message = err.message.replace(/INFO-\d+\s*/g, '');
