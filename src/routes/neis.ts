@@ -28,8 +28,10 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 					}));
 			} catch (e) {
 				const err = e as Error;
+				const message = err.message.replace(/INFO-\d+\s*/g, '');
 
-				throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
+				if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
+				else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
 			}
 		},
 		{
@@ -133,8 +135,10 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 				return meals;
 			} catch (e) {
 				const err = e as Error;
+				const message = err.message.replace(/INFO-\d+\s*/g, '');
 
-				throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
+				if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
+				else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
 			}
 		},
 		{
@@ -235,8 +239,10 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 				return schedules;
 			} catch (e) {
 				const err = e as Error;
+				const message = err.message.replace(/INFO-\d+\s*/g, '');
 
-				throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
+				if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
+				else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
 			}
 		},
 		{
