@@ -4,6 +4,7 @@ import { logger } from '@grotto/logysia';
 
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
+import { cronjob } from './cache';
 
 const app = new Elysia()
 	.use(
@@ -25,7 +26,7 @@ const app = new Elysia()
 					},
 				],
 			},
-		}),
+		})
 	)
 	.use(
 		logger({
@@ -35,9 +36,10 @@ const app = new Elysia()
 					console.log(msg);
 				},
 			},
-		}),
+		})
 	)
 
+	.use(cronjob)
 	.use(comcigan)
 	.use(neis)
 	.listen(process.env.PORT ?? 3000);
