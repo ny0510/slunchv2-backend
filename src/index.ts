@@ -25,7 +25,7 @@ const app = new Elysia()
 					},
 				],
 			},
-		})
+		}),
 	)
 	.use(
 		logger({
@@ -35,7 +35,7 @@ const app = new Elysia()
 					console.log(msg);
 				},
 			},
-		})
+		}),
 	)
 
 	.use(comcigan)
