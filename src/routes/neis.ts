@@ -1,9 +1,5 @@
 import { Elysia, error, t } from 'elysia';
-import Neis from 'neis.ts';
-
-const neis = new Neis({
-	key: process.env.NEIS_API_KEY,
-});
+import { neis } from '../cache';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 	.get(
@@ -46,12 +42,12 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 						region: t.String({ description: '지역', default: '서울특별시교육청' }),
 						regionCode: t.String({ description: '지역 코드', default: 'B10' }),
 					}),
-					{ description: '검색된 학교 목록' }
+					{ description: '검색된 학교 목록' },
 				),
 				400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
 			},
 			detail: { summary: '학교 검색' },
-		}
+		},
 	)
 	.get(
 		'/meal',
@@ -169,10 +165,10 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 										t.Object({
 											type: t.String({ description: '알레르기 종류', default: '밀' }),
 											code: t.String({ description: '알레르기 코드', default: '6' }),
-										})
+										}),
 									),
 								}),
-								{ description: '급식' }
+								{ description: '급식' },
 							),
 						]),
 						type: t.String({ description: '급식 종류', default: '중식' }),
@@ -181,8 +177,8 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 								t.Object({
 									food: t.String({ description: '음식 이름', default: '김치찌개' }),
 									origin: t.String({ description: '원산지', default: '국내산' }),
-								})
-							)
+								}),
+							),
 						),
 						calorie: t.String({ description: '칼로리', default: '1234' }),
 						nutrition: t.Optional(
@@ -190,16 +186,16 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 								t.Object({
 									type: t.String({ description: '영양소 종류', default: '탄수화물(g)' }),
 									amount: t.String({ description: '영양소 양', default: '147.4' }),
-								})
-							)
+								}),
+							),
 						),
 					}),
-					{ description: '급식 정보' }
+					{ description: '급식 정보' },
 				),
 				400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
 			},
 			detail: { summary: '급식 정보' },
-		}
+		},
 	)
 	.get(
 		'/schedule',
@@ -276,12 +272,12 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 						}),
 						schedule: t.String({ description: '일정', default: '해피 버스데이 미' }),
 					}),
-					{ description: '일정 정보' }
+					{ description: '일정 정보' },
 				),
 				400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
 			},
 			detail: { summary: '일정 정보' },
-		}
+		},
 	);
 
 export default app;
