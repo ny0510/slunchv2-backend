@@ -10,4 +10,4 @@ const mealSchema = new db.Schema({
 });
 
 export type MealSchema = db.InferSchemaType<typeof mealSchema>;
-export const MealSchema = new db.Model('Meal', mealSchema);
+export const MealSchema = db.model('Meal', mealSchema);
