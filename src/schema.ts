@@ -26,7 +26,9 @@ const mealSchema = new db.Schema({
       type: { type: String, required: true },
       amount: { type: String, required: true }
     }
-  ]
+  ],
+  school_code: String,
+  region_code: String
 });
 
 export const MealSchema = db.model('Meal', mealSchema);

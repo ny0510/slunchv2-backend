@@ -57,22 +57,14 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
       if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });
       if (!year) throw error(400, { message: '년도를 입력해주세요.' });
       if (!month) throw error(400, { message: '월을 입력해주세요.' });
-      try {
-        return getMeal(
-          schoolCode,
-          regionCode,
-          `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
-          showAllergy,
-          showOrigin,
-          showNutrition
-        )
-      } catch (e) {
-        const err = e as Error;
-        const message = err.message.replace(/INFO-\d+\s*/g, '');
-
-        if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
-        else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
-      }
+      return getMeal(
+        schoolCode,
+        regionCode,
+        `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
+        showAllergy,
+        showOrigin,
+        showNutrition
+      )
     },
     {
       query: t.Object({
