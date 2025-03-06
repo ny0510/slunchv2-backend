@@ -1,5 +1,5 @@
 import { Elysia, error, t } from 'elysia';
-import { neis } from '../cache';
+import { getMeal, neis } from '../cache';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 	.get(
@@ -57,78 +57,15 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 			if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });
 			if (!year) throw error(400, { message: '년도를 입력해주세요.' });
 			if (!month) throw error(400, { message: '월을 입력해주세요.' });
-
 			try {
-				const fetchedMeals = await neis.getMeal({
-					SD_SCHUL_CODE: schoolCode,
-					ATPT_OFCDC_SC_CODE: regionCode,
-					MLSV_YMD: `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
-				});
-
-				const allergyTypes: { [key: number]: string } = {
-					1: '난류',
-					2: '우유',
-					3: '메밀',
-					4: '땅콩',
-					5: '대두',
-					6: '밀',
-					7: '고등어',
-					8: '게',
-					9: '새우',
-					10: '돼지고기',
-					11: '복숭아',
-					12: '토마토',
-					13: '아황산류',
-					14: '호두',
-					15: '닭고기',
-					16: '쇠고기',
-					17: '오징어',
-					18: '조개류(굴, 전복, 홍합 포함)',
-					19: '잣',
-				};
-
-				const meals = fetchedMeals.map((m) => {
-					const foods = m.DDISH_NM.split('<br/>').map((item) => {
-						const [food, allergyCodes] = item.split(' (').map((str) => str.trim());
-						const allergies = allergyCodes
-							? allergyCodes
-									.replace(')', '')
-									.split('.')
-									.map((code) => ({
-										type: allergyTypes[parseInt(code)],
-										code,
-									}))
-							: [];
-						return { food, allergy: allergies };
-					});
-
-					const origin = m.ORPLC_INFO.split('<br/>')
-						.map((item) => {
-							const [food, origin] = item.split(' : ');
-							return { food, origin };
-						})
-						.filter(({ food }) => food !== '비고');
-
-					const nutrition = m.NTR_INFO.split('<br/>').map((item) => {
-						const [type, amount] = item.split(' : ');
-						return { type, amount };
-					});
-
-					const mealResponse = showAllergy ? foods : foods.map((item) => item.food);
-					const originResponse = showOrigin ? origin : undefined;
-					const nutritionResponse = showNutrition ? nutrition : undefined;
-
-					return {
-						date: `${m.MLSV_YMD.slice(0, 4)}-${m.MLSV_YMD.slice(4, 6)}-${m.MLSV_YMD.slice(6, 8)}`, // YYYYMMDD -> YYYY-MM-DD
-						meal: mealResponse,
-						type: m.MMEAL_SC_NM,
-						origin: originResponse,
-						calorie: m.CAL_INFO.replace('Kcal', '').trim(),
-						nutrition: nutritionResponse,
-					};
-				});
-
-				return meals;
+        return getMeal(
+          schoolCode,
+          regionCode,
+          `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
+          showAllergy,
+          showOrigin,
+          showNutrition
+        )
 			} catch (e) {
 				const err = e as Error;
 				const message = err.message.replace(/INFO-\d+\s*/g, '');

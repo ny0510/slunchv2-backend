@@ -52,25 +52,39 @@ export const cronjob = cron({
 
 export interface Meal {
 	date: string;
-	meal: string[];
+	meal: { food: string, allergy: {type: string, code: string }[]}[] | string[];
 	type: string;
-	origin: { food: string; origin: string }[];
+	origin: { food: string; origin: string }[] | undefined;
 	calorie: string;
-	nutrition: { type: string; amount: string }[];
+	nutrition: { type: string; amount: string }[] | undefined;
 }
 
-export async function getMeal(school_code: string, region_code: string, mlsv_ymd: string, forceFetch: boolean = false): Promise<Meal[]> {
-	const cachedMeals: MealSchema[] = forceFetch ? [] : await MealSchema.find({ school_code: school_code }).exec();
+export async function getMeal(
+  school_code: string,
+  region_code: string,
+  mlsv_ymd: string,
+  showAllergy: boolean = false,
+  showOrigin: boolean = false,
+  showNutrition: boolean = false
+): Promise<Meal[]> {
+	const cachedMeals: MealSchema[] = await MealSchema.find({ school_code: school_code, region_code: region_code, mlsv_ymd: mlsv_ymd }).exec();
   const unwrap = (x: string | null | undefined) => {return x ?? ""}
 	if (cachedMeals.length != 0) {
 		return cachedMeals.map((v) => {
       return {
         date: unwrap(v.date),
-        meal: v.meal,
+        meal: showAllergy ?
+          v.meal.map((v)=>v.food)
+          :v.meal.map((v)=>{
+            return {
+              food: unwrap(v.food),
+              allergy: v.allergy.map((val) => {return {type: val.type, code: val.code}})
+            }
+          }),
         type: unwrap(v.type),
-        origin: v.origin.map((val) => {return {food: unwrap(val.food), origin: unwrap(val.origin)}}),
+        origin: showOrigin ? v.origin.map((val) => {return {food: unwrap(val.food), origin: unwrap(val.origin)}}): undefined,
         calorie: unwrap(v.calorie),
-        nutrition: v.nutrition.map((val) => {return {type: val.type, amount: val.amount}})
+        nutrition: showNutrition ? v.nutrition.map((val) => {return {type: val.type, amount: val.amount}}): undefined
       }
     });
 	}
@@ -80,7 +94,7 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
 		MLSV_YMD: mlsv_ymd,
 	});
 
-	const meals: Meal[] = fetchedMeals.map((m) => {
+	const meals: Meal[] = await Promise.all(fetchedMeals.map(async (m) => {
 		const foods = m.DDISH_NM.split('<br/>').map((item) => {
 			const [food, allergyCodes] = item.split(' (').map((str) => str.trim());
 			const allergies = allergyCodes
@@ -107,19 +121,22 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
 			return { type, amount };
 		});
 
-		return {
+	  const resp: Meal = {
 			date: `${m.MLSV_YMD.slice(0, 4)}-${m.MLSV_YMD.slice(4, 6)}-${m.MLSV_YMD.slice(6, 8)}`, // YYYYMMDD -> YYYY-MM-DD
-			meal: foods.map((item) => item.food),
+			meal: foods,
 			type: m.MMEAL_SC_NM,
 			origin: origin,
 			calorie: m.CAL_INFO.replace('Kcal', '').trim(),
 			nutrition: nutrition,
 		};
-	});
 
-	meals.forEach(async (v: Meal) => {
-		await new MealSchema(v).save();
-	});
+    await (new MealSchema(resp).save());
+
+    if (!showAllergy) resp["meal"] = foods.map((v) => v.food);
+    if (!showOrigin) resp["origin"] = undefined;
+    if (!showNutrition) resp["nutrition"] = undefined;
+    return resp
+	}));
 
 	return meals;
 }
