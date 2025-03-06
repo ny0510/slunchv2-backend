@@ -6,7 +6,7 @@ const mealSchema = new db.Schema({
 	type: String,
 	origin: [{ food: String, origin: String }],
 	calorie: String,
-	nutrition: String,
+	nutrition: [{ type: String, amount: String }],
 });
 
 export type MealSchema = db.InferSchemaType<typeof mealSchema>;

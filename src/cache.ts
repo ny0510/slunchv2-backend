@@ -6,15 +6,6 @@ import { MealSchema } from './schema';
 
 await db.connect(process.env.MONGO_URI ?? '');
 
-export interface Meal {
-	date: string;
-	meal: string[];
-	type: string;
-	origin: { food: string; origin: string }[];
-	calorie: string;
-	nutrition: { type: string; amount: string }[];
-}
-
 const allergyTypes: Record<number, string> = {
 	1: '난류',
 	2: '우유',
@@ -59,10 +50,29 @@ export const cronjob = cron({
 	},
 });
 
+export interface Meal {
+	date: string;
+	meal: string[];
+	type: string;
+	origin: { food: string; origin: string }[];
+	calorie: string;
+	nutrition: { type: string; amount: string }[];
+}
+
 export async function getMeal(school_code: string, region_code: string, mlsv_ymd: string, forceFetch: boolean = false): Promise<Meal[]> {
-	const cachedMeals = forceFetch ? [] : await MealSchema.find({ school_code: school_code }).exec();
+	const cachedMeals: MealSchema[] = forceFetch ? [] : await MealSchema.find({ school_code: school_code }).exec();
+  const unwrap = (x: string | null | undefined) => {return x ?? ""}
 	if (cachedMeals.length != 0) {
-		return cachedMeals;
+		return cachedMeals.map((v) => {
+      return {
+        date: unwrap(v.date),
+        meal: v.meal,
+        type: unwrap(v.type),
+        origin: v.origin.map((val) => {return {food: unwrap(val.food), origin: unwrap(val.origin)}}),
+        calorie: unwrap(v.calorie),
+        nutrition: v.nutrition.map((val) => {return {type: val.type, amount: val.amount}})
+      }
+    });
 	}
 	const fetchedMeals = await neis.getMeal({
 		SD_SCHUL_CODE: school_code,
