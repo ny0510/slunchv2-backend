@@ -17,7 +17,7 @@ const mealSchema = new db.Schema({
   origin: [
     {
       food: { type: String, required: true },
-      origin: { type: String, required: true }
+      origin: { type: String, required: false }
     }
   ],
   calorie: { type: String, required: true },
