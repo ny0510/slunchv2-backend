@@ -74,8 +74,11 @@ export async function getMeal(
   showNutrition: boolean = false
 ): Promise<Meal[]> {
   try {
-    const converted_date = `${mlsv_ymd.slice(0, 4)}-${mlsv_ymd.slice(4, 6)}-${mlsv_ymd.slice(6, 8)}`;
-    const cachedMeals: MealSchema[] = await MealSchema.find({ school_code: school_code, region_code: region_code, date: converted_date }).exec();
+    const cachedMeals: MealSchema[] = await MealSchema.find({
+      school_code: school_code,
+      region_code: region_code,
+      date: `${mlsv_ymd.slice(0, 4)}-${mlsv_ymd.slice(4, 6)}-${mlsv_ymd.slice(6, 8)}`
+    }).exec();
     const unwrap = (x: string | null | undefined) => {return x ?? ""}
     if (cachedMeals.length != 0) {
       return cachedMeals.map((v) => {
@@ -137,8 +140,10 @@ export async function getMeal(
         calorie: m.CAL_INFO.replace('Kcal', '').trim(),
         nutrition: nutrition,
       };
-      const resp_db: Cache = { ...resp, school_code, region_code };
-      await (new MealSchema(resp_db).save());
+      if (await MealSchema.findOne({date: resp.date, region_code, school_code}).exec() == null) {
+        const resp_db = {...resp, school_code, region_code};
+        await (new MealSchema(resp_db).save());
+      }
 
       if (!showAllergy) resp["meal"] = foods.map((v) => v.food);
       if (!showOrigin) resp["origin"] = undefined;
