@@ -31,6 +31,14 @@ const mealSchema = new db.Schema({
   region_code: String
 });
 
+const postSchema = new db.Schema({
+  date: Date,
+  title: String,
+  content: String
+})
+
 export const MealSchema = db.model('Meal', mealSchema);
 export type MealSchema = db.InferSchemaType<typeof mealSchema>;
+export const PostSchema = db.model('Post', postSchema);
+export type PostSchema = db.InferSchemaType<typeof postSchema>;
 
