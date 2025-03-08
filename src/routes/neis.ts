@@ -1,5 +1,5 @@
 import { Elysia, error, t } from 'elysia';
-import { getMeal, neis } from '../cache';
+import { getMeal, neis } from '../libraries/cache';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
