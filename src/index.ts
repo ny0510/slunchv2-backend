@@ -6,7 +6,7 @@ import comcigan from './routes/comcigan';
 import neis from './routes/neis';
 import { cronjob } from './cache';
 
-const app = new Elysia()
+export const app = new Elysia()
 	.use(
 		swagger({
 			documentation: {
@@ -29,7 +29,6 @@ const app = new Elysia()
 		})
 	)
 	.use(Logestic.preset('fancy'))
-
 	.use(cronjob)
 	.use(comcigan)
 	.use(neis)

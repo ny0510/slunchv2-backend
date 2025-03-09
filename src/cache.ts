@@ -5,7 +5,7 @@ import Neis from 'neis.ts';
 import { MealSchema } from './schema';
 import { error } from 'elysia';
 
-await db.connect(process.env.MONGO_URI ?? '');
+await db.connect(process.env.MONGO_URI ?? 'mongodb://localhost:27017');
 
 const allergyTypes: Record<number, string> = {
   1: '난류',

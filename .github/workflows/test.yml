@@ -1,0 +1,30 @@
+name: "test"
+
+on: push
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supercharge/mongodb-github-action@1.12.0
+        with:
+          mongodb-version: '8.0'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: setup .env
+        run: |
+          echo 'NEIS_API_KEY=${{ secrets.NEIS_API_KEY }}' > ".env"
+
+      - name: install dependencies
+        run: bun install
+
+      - name: test
+        run: bun test
+
