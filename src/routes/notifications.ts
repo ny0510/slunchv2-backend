@@ -2,7 +2,7 @@ import { Elysia, error, t } from 'elysia';
 import { ADMIN_USERID, getUser } from '../libraries/user';
 import { PostSchema } from '../libraries/schema';
 
-const app = new Elysia({ prefix: '/notification', tags: ['공지'] })
+const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
 	.get(
 		'/',
 		async () => {
@@ -32,8 +32,9 @@ const app = new Elysia({ prefix: '/notification', tags: ['공지'] })
 	)
 	.post(
 		'/',
-		async ({ headers }) => {
-			const { title, content, date, token } = headers;
+		async ({ headers, body }) => {
+			const { token } = headers;
+			const { title, content, date } = body;
 			if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
 			if (!title) throw error(400, { message: '제목을 입력해주세요.' });
 			if (!content) throw error(400, { message: '내용을 입력해주세요.' });
@@ -62,10 +63,12 @@ const app = new Elysia({ prefix: '/notification', tags: ['공지'] })
 		},
 		{
 			headers: t.Object({
+				token: t.String({ description: '구글 OAuth 토큰' }),
+			}),
+			body: t.Object({
 				title: t.String({ description: '공지 제목', default: 'title' }),
 				content: t.String({ description: '공지 내용', default: 'description' }),
 				date: t.String({ description: '공지 날짜', default: '2025-03-08T05:52:06.583Z' }),
-				token: t.String({ description: '구글 OAuth 토큰' }),
 			}),
 			response: {
 				200: t.Object({}),
