@@ -140,15 +140,18 @@ export async function getMeal(
         calorie: m.CAL_INFO.replace('Kcal', '').trim(),
         nutrition: nutrition,
       };
-      if (await MealSchema.findOne({date: resp.date, region_code, school_code}).exec() == null) {
-        const resp_db = {...resp, school_code, region_code};
-        await (new MealSchema(resp_db).save());
-      }
+
+      const resp_db = {...resp, school_code, region_code};
+      await MealSchema.updateOne(
+        { date: resp.date, region_code, school_code },
+        { $set: resp_db },
+        { upsert: true }
+      );
 
       if (!showAllergy) resp["meal"] = foods.map((v) => v.food);
       if (!showOrigin) resp["origin"] = undefined;
       if (!showNutrition) resp["nutrition"] = undefined;
-      return resp
+      return resp;
     }));
 
     return meals;
