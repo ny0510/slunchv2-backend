@@ -73,7 +73,7 @@ const app = new Elysia({ prefix: '/notification', tags: ['공지'] })
 				401: t.Object({ message: t.String() }),
 				403: t.Object({ message: t.String() }),
 			},
-			detail: { summary: '공지 목록' },
+			detail: { summary: '공지 추가' },
 		}
 	);
 
