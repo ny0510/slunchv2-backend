@@ -158,7 +158,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           }
         });
 
-        const schedules = Object.entries(schedulesMap).map(([date, { start, end, schedules }]) => ({
+        const schedules = Object.entries(schedulesMap).map(([_, { start, end, schedules }]) => ({
           schedule: schedules.join(', '),
           date: { start, end },
         }));
