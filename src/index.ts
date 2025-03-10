@@ -4,11 +4,10 @@ import { Logestic } from 'logestic';
 
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
-import pfp from './routes/pfp';
 import notifications from './routes/notifications';
 import { cronjob } from './libraries/cache';
 
-const app = new Elysia()
+export const app = new Elysia()
   .use(
     swagger({
       documentation: {
@@ -31,7 +30,6 @@ const app = new Elysia()
     })
   )
   .use(Logestic.preset('fancy'))
-
   .use(cronjob)
   .use(comcigan)
   .use(neis)
