@@ -29,9 +29,16 @@ function parseBase64(base64: string) {
 const app = new Elysia({ prefix: '/pfp', tags: ['파일 업로드'] })
   .get(
     '/',
-    async ({ body }) => {
-      const { userid } = body;
-      if (!userid) throw error(400, { message: '유저 ID를 입력해주세요.' });
+    async ({ headers }) => {
+      const { token } = headers;
+      if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
+
+      let userid: string;
+      try {
+        userid = await getUser(token);
+      } catch (e) {
+        throw error(401, { message: '토큰이 유효하지 않습니다.' });
+      }
 
       // 지원하는 확장자 목록
       const extensions = ['jpg', 'jpeg', 'png', 'webp'];
@@ -56,8 +63,8 @@ const app = new Elysia({ prefix: '/pfp', tags: ['파일 업로드'] })
       return { image: base64Image };
     },
     {
-      body: t.Object({
-        userid: t.String({ description: '유저 ID' }),
+      headers: t.Object({
+        token: t.String({ description: '구글 OAuth 토큰' }),
       }),
       response: {
         200: t.Object({ image: t.String() }),
@@ -70,10 +77,18 @@ const app = new Elysia({ prefix: '/pfp', tags: ['파일 업로드'] })
   )
   .post(
     '/',
-    async ({ body }) => {
-      const { userid, image } = body;
-      if (!userid) throw error(400, { message: '유저 ID를 입력해주세요.' });
+    async ({ headers, body }) => {
+      const { token } = headers;
+      const { image } = body;
+      if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
       if (!image) throw error(400, { message: '이미지를 입력해주세요.' });
+
+      let userid: string;
+      try {
+        userid = await getUser(token);
+      } catch (e) {
+        throw error(401, { message: '토큰이 유효하지 않습니다.' });
+      }
 
       await ensureUploadDir();
 
@@ -98,9 +113,11 @@ const app = new Elysia({ prefix: '/pfp', tags: ['파일 업로드'] })
       return { message: '성공적으로 업로드되었습니다.' };
     },
     {
+      headers: t.Object({
+        token: t.String({ description: '구글 OAuth 토큰' }),
+      }),
       body: t.Object({
-        userid: t.String({ description: '유저 ID' }),
-        image: t.String({ description: 'Base64 인코딩된 이미지' }),
+        image: t.String({ description: 'data:image/jpeg;base64,로 시작하는 Base64 인코딩된 이미지' }),
       }),
       response: {
         200: t.Object({ message: t.String() }),
