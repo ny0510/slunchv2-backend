@@ -117,7 +117,7 @@ const app = new Elysia({ prefix: '/pfp', tags: ['파일 업로드'] })
         token: t.String({ description: '구글 OAuth 토큰' }),
       }),
       body: t.Object({
-        image: t.String({ description: 'data:image/jpeg;base64,로 시작하는 Base64 인코딩된 이미지' }),
+        image: t.String({ description: 'Base64로 인코딩된 이미지' }),
       }),
       response: {
         200: t.Object({ message: t.String() }),
