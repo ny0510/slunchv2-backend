@@ -1,6 +1,6 @@
 {
 	"printWidth": 350,
-	"tabWidth": 4,
+	"tabWidth": 2,
 	"useTabs": true,
 	"bracketSameLine": true,
 	"singleQuote": true
