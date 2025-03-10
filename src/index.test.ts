@@ -1,6 +1,6 @@
 import { expect, describe, it } from "bun:test"
 import { app } from "./index"
-import { MealSchema } from "./schema"
+import { MealSchema } from "./libraries/schema"
 
 const default_url = 'http://localhost:3000'
 
