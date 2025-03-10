@@ -1,5 +1,5 @@
 import { Elysia, error, t } from 'elysia';
-import { getMeal, neis } from '../cache';
+import { getMeal, neis } from '../libraries/cache';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
@@ -45,6 +45,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           { description: '검색된 학교 목록' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        404: t.Object({ message: t.String() })
       },
       detail: { summary: '학교 검색' },
     },
@@ -122,6 +123,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           { description: '급식 정보' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        404: t.Object({ message: t.String() })
       },
       detail: { summary: '급식 정보' },
     },
@@ -156,7 +158,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           }
         });
 
-        const schedules = Object.entries(schedulesMap).map(([date, { start, end, schedules }]) => ({
+        const schedules = Object.entries(schedulesMap).map(([_, { start, end, schedules }]) => ({
           schedule: schedules.join(', '),
           date: { start, end },
         }));
@@ -204,6 +206,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           { description: '일정 정보' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        404: t.Object({ message: t.String() })
       },
       detail: { summary: '일정 정보' },
     },
