@@ -4,6 +4,7 @@ import { Logestic } from 'logestic';
 
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
+import pfp from './routes/pfp';
 import notifications from './routes/notifications';
 import { cronjob } from './libraries/cache';
 
