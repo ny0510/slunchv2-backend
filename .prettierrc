@@ -1,7 +1,7 @@
 {
-	"printWidth": 350,
-	"tabWidth": 4,
-	"useTabs": false,
-	"bracketSameLine": true,
-	"singleQuote": true
+    "printWidth": 350,
+    "tabWidth": 2,
+    "useTabs": false,
+    "bracketSameLine": true,
+    "singleQuote": true
 }
