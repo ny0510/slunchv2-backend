@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { Logestic } from 'logestic';
+import { staticPlugin } from '@elysiajs/static';
 
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
@@ -30,6 +31,12 @@ export const app = new Elysia()
     })
   )
   .use(Logestic.preset('fancy'))
+  .use(
+    staticPlugin({
+      assets: 'public',
+      noCache: true,
+    })
+  )
   .use(cronjob)
   .use(comcigan)
   .use(neis)
