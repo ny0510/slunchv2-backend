@@ -1,6 +1,8 @@
 import { expect, describe, it } from "bun:test"
 import { app } from "./index"
-import { MealSchema } from "./libraries/schema"
+import { db } from "./libraries/db"
+import { Cache } from "./libraries/cache"
+import { randomUUIDv7 } from "bun"
 
 const default_url = 'http://localhost:3000'
 
@@ -40,22 +42,40 @@ describe('neis', () => {
     })).toEqual([{"schoolName": "선린인터넷고등학교","schoolCode": "7010536","region": "서울특별시교육청","regionCode": "B10"}])
   })
   it('meal (only on cache)', async () => {
-    const data = JSON.parse(await Bun.file("./tests/meal_data.json").text());
-    data["school_code"] = 7010536;
-    data["region_code"] = "B10";
-    (new MealSchema(data)).save();
-    delete data["school_code"]
-    delete data["region_code"]
+    const data: Cache[] = JSON.parse(await Bun.file("./tests/meal_data.json").text());
+    await db.openDB({name: 'meal'}).put(`B10_7010536_${data[0].date}`, data[0])
     expect(await getResponse(url + 'meal', {
       'schoolCode': '7010536',
       'regionCode': 'B10',
       'year': '2025',
       'month': '03',
-      'day': '10',
+      'day': '14',
       'showAllergy': 'true',
       'showOrigin': 'true',
       'showNutrition': 'true'
-    })).toEqual([data])
+    })).toEqual(data)
+  })
+})
+
+describe('notifications', () => {
+  const url = '/notifications/';
+  it('get', async () => {
+    const notifications = [
+      {
+        title: 'test',
+        description: 'test',
+        content: 'test',
+        date: '2025-03-08T05:52:06.583Z'
+      }, {
+        title: 'test but first',
+        description: 'test',
+        content: 'test',
+        date: '2025-03-08T05:52:06.582Z'
+      }
+    ]
+    await db.openDB({name: 'notifications'}).put(randomUUIDv7(), notifications[0])
+    await db.openDB({name: 'notifications'}).put(randomUUIDv7(), notifications[1])
+    expect(await getResponse(url)).toEqual(notifications)
   })
 })
 

@@ -1,11 +1,8 @@
 import cron, { Patterns } from '@elysiajs/cron';
-import * as db from 'mongoose';
 import Neis from 'neis.ts';
 
-import { MealSchema } from './schema';
+import { db } from './db';
 import { error } from 'elysia';
-
-await db.connect(process.env.MONGO_URI ?? 'mongodb://localhost:27017');
 
 const allergyTypes: Record<number, string> = {
   1: '난류',
@@ -33,37 +30,46 @@ export const neis = new Neis({
   key: process.env.NEIS_API_KEY,
 });
 
-export const cronjob = cron({
-  name: 'refresh',
-  pattern: Patterns.EVERY_DAY_AT_1AM,
-  async run() {
-    console.log('start refresh cache');
-    const now = new Date();
-    for await (const v of MealSchema.find()) {
-      const dateValue: string = v.date ?? '2021-01-01';
-      const date = new Date(dateValue);
-      date.setHours(23, 59, 59);
-      if (date < now) {
-        await v.deleteOne();
-      }
-    }
-    console.log('refresh cache finished');
-  },
-});
+const collection = db.openDB({name: 'meal'});
 
-export interface Meal {
+interface Meal {
   date: string;
   meal: { food: string, allergy: {type: string, code: string }[]}[] | string[];
   type: string;
   origin: { food: string; origin: string }[] | undefined;
   calorie: string;
   nutrition: { type: string; amount: string }[] | undefined;
+  school_code?: string;
+  region_code?: string;
 }
 
-interface Cache extends Meal {
-  school_code: string,
-  region_code: string
+export interface Cache extends Meal {
+  meal: { food: string, allergy: {type: string, code: string }[]}[],
+  origin: { food: string; origin: string }[],
+  nutrition: { type: string; amount: string }[],
+  region_code: string,
+  school_code: string
 }
+
+export const cronjob = cron({
+  name: 'refresh',
+  pattern: Patterns.EVERY_DAY_AT_1AM,
+  async run() {
+    console.log('start refresh cache');
+    const now = new Date();
+    for (const v of collection.getKeys()) {
+      const key = v.toString()
+      const dateValue: string = key.split("_")[0];
+      const date = new Date(dateValue);
+      date.setHours(23, 59, 59);
+      if (date < now) {
+        console.log(`delete ${key}, dateValue is ${dateValue}`);
+        await collection.remove(key);
+      }
+    }
+    console.log('refresh cache finished');
+  },
+});
 
 export async function getMeal(
   school_code: string,
@@ -74,29 +80,24 @@ export async function getMeal(
   showNutrition: boolean = false
 ): Promise<Meal[]> {
   try {
-    const cachedMeals: MealSchema[] = await MealSchema.find({
-      school_code: school_code,
-      region_code: region_code,
-      date: `${mlsv_ymd.slice(0, 4)}-${mlsv_ymd.slice(4, 6)}-${mlsv_ymd.slice(6, 8)}`
-    }).exec();
+    const cachedMeal: Cache | undefined | null = collection.get(`${region_code}_${school_code}_${mlsv_ymd}`);
     const unwrap = (x: string | null | undefined) => {return x ?? ""}
-    if (cachedMeals.length != 0) {
-      return cachedMeals.map((v) => {
-        return {
-          date: unwrap(v.date),
-          meal: showAllergy ?
-            v.meal.map((v)=>{
-              return {
-                food: unwrap(v.food),
-                allergy: v.allergy.map((val) => {return {type: val.type, code: val.code}})
-              }
-            }):v.meal.map((v)=>v.food),
-          type: unwrap(v.type),
-          origin: showOrigin ? v.origin.map((val) => {return {food: unwrap(val.food), origin: unwrap(val.origin)}}): undefined,
-          calorie: unwrap(v.calorie),
-          nutrition: showNutrition ? v.nutrition.map((val) => {return {type: val.type, amount: val.amount}}): undefined
-        }
-      });
+    if (cachedMeal != null && cachedMeal != undefined) {
+      let v = cachedMeal;
+      return [{
+        date: v.date,
+        meal: showAllergy ?
+          v.meal.map((v)=>{
+            return {
+              food: v.food,
+              allergy: v.allergy.map((val) => {return {type: val.type, code: val.code}})
+            }
+          }):v.meal.map((v)=>v.food),
+        type: unwrap(v.type),
+        origin: showOrigin ? v.origin.map((val) => {return {food: val.food, origin: val.origin}}): undefined,
+        calorie: unwrap(v.calorie),
+        nutrition: showNutrition ? v.nutrition.map((val) => {return {type: val.type, amount: val.amount}}): undefined
+      }];
     }
 
     const fetchedMeals = await neis.getMeal({
@@ -132,25 +133,28 @@ export async function getMeal(
         return { type, amount };
       });
 
-      const resp: Meal = {
+      const resp_db: Cache = {
         date: `${m.MLSV_YMD.slice(0, 4)}-${m.MLSV_YMD.slice(4, 6)}-${m.MLSV_YMD.slice(6, 8)}`, // YYYYMMDD -> YYYY-MM-DD
         meal: foods,
         type: m.MMEAL_SC_NM,
         origin: origin,
         calorie: m.CAL_INFO.replace('Kcal', '').trim(),
         nutrition: nutrition,
+        school_code: school_code,
+        region_code: region_code
       };
 
-      const resp_db = {...resp, school_code, region_code};
-      await MealSchema.updateOne(
-        { date: resp.date, region_code, school_code },
-        { $set: resp_db },
-        { upsert: true }
-      );
+      if (!collection.doesExist(`${region_code}_${school_code}_${region_code}`)) {
+        await collection.put(`${region_code}_${school_code}_${region_code}`, resp_db);
+      }
 
-      if (!showAllergy) resp["meal"] = foods.map((v) => v.food);
-      if (!showOrigin) resp["origin"] = undefined;
-      if (!showNutrition) resp["nutrition"] = undefined;
+      const resp: Meal = resp_db;
+
+      if (!showAllergy) resp.meal = foods.map((v) => v.food);
+      if (!showOrigin) resp.origin = undefined;
+      if (!showNutrition) resp.nutrition = undefined;
+      delete resp.school_code;
+      delete resp.region_code;
       return resp;
     }));
 
