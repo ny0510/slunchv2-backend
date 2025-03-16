@@ -80,7 +80,8 @@ export async function getMeal(
   showNutrition: boolean = false
 ): Promise<Meal[]> {
   try {
-    const cachedMeal: Cache | undefined | null = collection.get(`${region_code}_${school_code}_${mlsv_ymd}`);
+    const db_date = mlsv_ymd.slice(0, 4) + "-" + mlsv_ymd.slice(4, 6) + "-" + mlsv_ymd.slice(6, 8);
+    const cachedMeal: Cache | undefined | null = collection.get(`${region_code}_${school_code}_${db_date}`);
     const unwrap = (x: string | null | undefined) => {return x ?? ""}
     if (cachedMeal != null && cachedMeal != undefined) {
       let v = cachedMeal;
@@ -144,8 +145,8 @@ export async function getMeal(
         region_code: region_code
       };
 
-      if (!collection.doesExist(`${region_code}_${school_code}_${region_code}`)) {
-        await collection.put(`${region_code}_${school_code}_${region_code}`, resp_db);
+      if (!collection.doesExist(`${region_code}_${school_code}_${resp_db.date}`)) {
+        await collection.put(`${region_code}_${school_code}_${resp_db.date}`, resp_db);
       }
 
       const resp: Meal = resp_db;
