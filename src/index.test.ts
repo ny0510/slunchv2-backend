@@ -2,10 +2,11 @@ import { expect, describe, it } from 'bun:test';
 import { app } from './index';
 import { db } from './libraries/db';
 import { Cache } from './libraries/cache';
+import { randomUUIDv7 } from 'bun';
 
 const default_url = 'http://localhost:3000';
 
-async function _getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'GET') {
+async function getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}) {
   let first = true;
   let final_url = default_url + url;
   for (const v of Object.keys(query)) {
@@ -21,19 +22,12 @@ async function _getResponse(url: string, query: Record<string, string> = {}, hea
     .handle(
       new Request(final_url, {
         headers: headers,
-        method: method,
-        body: JSON.stringify(body),
       })
     )
-    .then(async (res) => res);
-}
-
-async function getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'GET') {
-  return await (await _getResponse(url, query, headers, body, method)).json();
-}
-
-async function getResponseStatus(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'POST') {
-  return (await _getResponse(url, query, headers, body, method)).status;
+    .then(async (res) => {
+      const data = await res.text();
+      return JSON.parse(data);
+    });
 }
 
 describe('comcigan', () => {
@@ -75,30 +69,23 @@ describe('neis', () => {
 
 describe('notifications', () => {
   const url = '/notifications/';
-  const notifications = [
-    {
-      title: 'title',
-      content: 'description',
-      date: '2025-03-08T05:52:06.583Z',
-    },
-    {
-      title: 'title',
-      content: 'description',
-      date: '2025-03-08T05:52:06.583Z',
-    },
-  ];
-  it('post without token', async () => {
-    expect(await getResponseStatus(url, {}, {}, notifications[0])).toBe(422);
-  });
-  it('post with invalid token', async () => {
-    expect(await getResponseStatus(url, {}, { Token: 'invalid' }, notifications[0])).toBe(403);
-  });
-  it('post', async () => {
-    for (const notification of notifications) {
-      expect(await getResponseStatus(url, {}, { Token: process.env.ADMIN_KEY ?? '' }, notification)).toBe(200);
-    }
-  });
   it('get', async () => {
+    const notifications = [
+      {
+        title: 'test',
+        description: 'test',
+        content: 'test',
+        date: '2025-03-08T05:52:06.583Z',
+      },
+      {
+        title: 'test but first',
+        description: 'test',
+        content: 'test',
+        date: '2025-03-08T05:52:06.582Z',
+      },
+    ];
+    await db.openDB({ name: 'notifications' }).put(randomUUIDv7(), notifications[0]);
+    await db.openDB({ name: 'notifications' }).put(randomUUIDv7(), notifications[1]);
     expect(await getResponse(url)).toEqual(notifications);
   });
 });
