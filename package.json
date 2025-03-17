@@ -8,7 +8,7 @@
 	"dependencies": {
 		"@elysiajs/cron": "^1.2.0",
 		"@elysiajs/static": "^1.2.0",
-		"@elysiajs/swagger": "^1.2.0",
+		"@elysiajs/swagger": "^1.2.2",
 		"comcigan.ts": "^1.2.2",
 		"elysia": "latest",
 		"google-auth-library": "^9.15.1",
