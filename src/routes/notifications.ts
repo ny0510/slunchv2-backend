@@ -1,7 +1,8 @@
-import { randomUUIDv7 as randomUUID } from "bun";
+import { randomUUIDv7 as randomUUID } from 'bun';
 
 import { Elysia, error, t } from 'elysia';
-import { db } from "../libraries/db";
+import { ADMIN_USERID, getUser } from '../libraries/user';
+import { db } from '../libraries/db';
 
 interface Notification {
   title: string;
@@ -10,11 +11,6 @@ interface Notification {
 }
 
 const collection = db.openDB({ name: 'notifications', cache: true });
-const password = process.env.ADMIN_KEY;
-if (password === undefined) {
-  throw new Error('ADMIN_KEY is not defined');
-}
-const hash = await Bun.password.hash(password);
 
 const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
   .get(
@@ -50,17 +46,30 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       if (!content) throw error(400, { message: '내용을 입력해주세요.' });
       if (!date) throw error(400, { message: '날짜를 입력해주세요.' });
 
-      if (!(await Bun.password.verify(token, hash))) {
+      let userid: string;
+      try {
+        userid = await getUser(token);
+      } catch (e) {
+        if (e === TypeError) {
+          throw error(401, { message: '토큰이 유효하지 않습니다.' });
+        }
+        const err = e as Error;
+        if (err.message.startsWith('Wrong number of segments in token:')) {
+          throw error(401, { message: '토큰이 유효하지 않습니다.' });
+        }
+        console.error(e);
+        throw e;
+      }
+
+      if (!ADMIN_USERID.includes(userid)) {
         throw error(403, { message: '권한이 없습니다.' });
       }
 
       await collection.put(randomUUID(), { title, content, date });
-
-      return {};
     },
     {
       headers: t.Object({
-        token: t.String({ description: '관리자 토큰' }),
+        token: t.String({ description: '구글 OAuth 토큰' }),
       }),
       body: t.Object({
         title: t.String({ description: '공지 제목', default: 'title' }),
