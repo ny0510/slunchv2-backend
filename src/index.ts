@@ -28,7 +28,7 @@ export const app = new Elysia()
           },
         ],
       },
-    })
+    }),
   )
   // .use(Logestic.preset('fancy'))
   .use(
@@ -41,7 +41,7 @@ export const app = new Elysia()
     staticPlugin({
       assets: 'public',
       noCache: true,
-    })
+    }),
   )
   .use(cronjob)
   .use(comcigan)

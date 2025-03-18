@@ -1,4 +1,3 @@
-import { open } from "lmdb";
+import { open } from 'lmdb';
 
-export const db = open({path: "./db.lmdb", compression: true});
-
+export const db = open({ path: './db.lmdb', compression: true });

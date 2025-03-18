@@ -34,12 +34,13 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
             title: t.String({ description: '공지 제목', default: '제목' }),
             content: t.String({ description: '공지 내용', default: '내용' }),
             date: t.String({ description: '공지 날짜', default: '2025-03-08T05:52:06.583Z' }),
-          })
+          }),
+          { description: '공지 목록' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
       detail: { summary: '공지 목록' },
-    }
+    },
   )
   .post(
     '/',

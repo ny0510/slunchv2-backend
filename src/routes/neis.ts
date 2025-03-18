@@ -45,7 +45,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           { description: '검색된 학교 목록' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-        404: t.Object({ message: t.String() })
+        404: t.Object({ message: t.String() }),
       },
       detail: { summary: '학교 검색' },
     },
@@ -58,14 +58,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
       if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });
       if (!year) throw error(400, { message: '년도를 입력해주세요.' });
       if (!month) throw error(400, { message: '월을 입력해주세요.' });
-      return getMeal(
-        schoolCode,
-        regionCode,
-        `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
-        showAllergy,
-        showOrigin,
-        showNutrition
-      )
+      return getMeal(schoolCode, regionCode, `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`, showAllergy, showOrigin, showNutrition);
     },
     {
       query: t.Object({
@@ -123,7 +116,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           { description: '급식 정보' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-        404: t.Object({ message: t.String() })
+        404: t.Object({ message: t.String() }),
       },
       detail: { summary: '급식 정보' },
     },
@@ -206,7 +199,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
           { description: '일정 정보' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-        404: t.Object({ message: t.String() })
+        404: t.Object({ message: t.String() }),
       },
       detail: { summary: '일정 정보' },
     },
