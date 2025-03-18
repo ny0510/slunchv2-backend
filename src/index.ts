@@ -6,8 +6,9 @@ import { logger } from '@tqman/nice-logger';
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
 import notifications from './routes/notifications';
-import fcm from "./routes/fcm";
-import { cronjob } from './libraries/cache';
+import fcm from './routes/fcm';
+import { refreshCache } from './libraries/cache';
+import { sendFcm } from './libraries/fcm';
 
 export const app = new Elysia()
   .use(
@@ -29,7 +30,7 @@ export const app = new Elysia()
           },
         ],
       },
-    }),
+    })
   )
   // .use(Logestic.preset('fancy'))
   .use(
@@ -42,9 +43,10 @@ export const app = new Elysia()
     staticPlugin({
       assets: 'public',
       noCache: true,
-    }),
+    })
   )
-  .use(cronjob)
+  .use(refreshCache)
+  .use(sendFcm)
   .use(comcigan)
   .use(neis)
   .use(notifications)

@@ -51,7 +51,7 @@ export interface Cache extends Meal {
   school_code: string;
 }
 
-export const cronjob = cron({
+export const refreshCache = cron({
   name: 'refresh',
   pattern: Patterns.EVERY_DAY_AT_1AM,
   async run() {
@@ -166,7 +166,7 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
         delete resp.school_code;
         delete resp.region_code;
         return resp;
-      }),
+      })
     );
 
     return meals;
