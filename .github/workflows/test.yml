@@ -16,7 +16,7 @@ jobs:
 
       - name: setup .env
         run: |
-          echo 'NEIS_API_KEY=${{ secrets.NEIS_API_KEY }}' > ".env"
+          echo 'NEIS_API_KEY=${{ secrets.NEIS_API_KEY }}\n' > ".env"
           echo 'ADMIN_KEY=test' >> ".env"
 
       - name: install dependencies
