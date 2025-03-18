@@ -18,6 +18,10 @@ jobs:
         run: |
           printf 'NEIS_API_KEY=${{ secrets.NEIS_API_KEY }}\nADMIN_KEY=test' > ".env"
 
+      - name: setup firebase credentials
+        run: |
+          printf '${{ secrets.FIREBASE_CREDENTIALS }}' > "serviceAccountKey.json"
+
       - name: install dependencies
         run: bun install
 
