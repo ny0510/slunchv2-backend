@@ -1,9 +1,10 @@
-import { randomUUIDv7 as randomUUID } from "bun";
+import { randomUUIDv7 as randomUUID } from 'bun';
 
 import { Elysia, error, t } from 'elysia';
-import { db } from "../libraries/db";
+import { db } from '../libraries/db';
 
 interface Notification {
+  id: string;
   title: string;
   content: string;
   date: string;
@@ -29,6 +30,7 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       response: {
         200: t.Array(
           t.Object({
+            id: t.String({ description: '공지 ID' }), // Add this line
             title: t.String({ description: '공지 제목', default: '제목' }),
             content: t.String({ description: '공지 내용', default: '내용' }),
             date: t.String({ description: '공지 날짜', default: '2025-03-08T05:52:06.583Z' }),
@@ -54,7 +56,8 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
         throw error(403, { message: '권한이 없습니다.' });
       }
 
-      await collection.put(randomUUID(), { title, content, date });
+      const id = randomUUID();
+      await collection.put(id, { id, title, content, date });
 
       return {};
     },
