@@ -3,13 +3,15 @@ import { db } from '../libraries/db';
 
 const collection = db.openDB({ name: 'fcm' });
 
-const app = new Elysia({ prefix: '/fcm', tags: ["fcm"] })
+const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
   .get(
     '/',
     async ({ query }) => {
       if (!query.token) throw error(400, { message: '토큰을 입력해주세요.' });
 
-      if (!collection.doesExist(query.token)) { throw error(404, { message: '토큰을 찾을 수 없어요.' }); }
+      if (!collection.doesExist(query.token)) {
+        throw error(404, { message: '토큰을 찾을 수 없어요.' });
+      }
 
       return collection.get(query.token);
     },
@@ -26,7 +28,7 @@ const app = new Elysia({ prefix: '/fcm', tags: ["fcm"] })
         404: t.Object({ message: t.String() }),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
-    },
+    }
   )
   .post(
     '/',
@@ -44,24 +46,28 @@ const app = new Elysia({ prefix: '/fcm', tags: ["fcm"] })
 
       await collection.put(token, { token, time });
 
-      return {};
+      return { token, time };
     },
     {
       body: t.Object({
         token: t.String({ description: 'fcm 토큰' }),
-        time: t.String({ description: '알림 시간', example: '07:00' })
+        time: t.String({ description: '알림 시간', example: '07:00' }),
       }),
       detail: { summary: 'fcm 토큰 추가' },
       response: {
-        200: t.Object({}),
+        200: t.Object({
+          token: t.String({ description: 'fcm 토큰' }),
+          time: t.String({ description: '알림 시간', example: '07:00' }),
+        }),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         409: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
-    },
-  ).delete(
+    }
+  )
+  .delete(
     '/',
-    (async ({ body }) => {
+    async ({ body }) => {
       const { token } = body;
 
       if (!token) throw error(400, '토큰을 입력해주세요.');
@@ -70,15 +76,15 @@ const app = new Elysia({ prefix: '/fcm', tags: ["fcm"] })
 
       await collection.remove(token);
 
-      return {};
-    }),
+      return { message: '토큰이 삭제되었어요.' };
+    },
     {
       body: t.Object({
-        token: t.String({ description: 'fcm 토큰' })
+        token: t.String({ description: 'fcm 토큰' }),
       }),
       detail: { summary: 'fcm 토큰 삭제' },
       response: {
-        200: t.Object({}),
+        200: t.Object({ message: t.String() }),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
