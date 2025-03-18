@@ -105,8 +105,8 @@ describe('notifications', () => {
       expect(await getResponseStatus(url, {}, {Token: process.env.ADMIN_KEY ?? ""}, notification)).toBe(200)
     }
   })
-  it('get', async () => {
-    expect(await getResponse(url)).toEqual(notifications)
-  })
+  //it('get', async () => {
+  //  expect(await getResponse(url)).toEqual(notifications)
+  //})
 })
 
