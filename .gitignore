@@ -1,4 +1,5 @@
 .env
+notification.txt
 
 # Database
 db.lmdb
