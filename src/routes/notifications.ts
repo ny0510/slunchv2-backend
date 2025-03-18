@@ -23,21 +23,19 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
     async () => {
       const notifications: Notification[] = await collection.getMany(collection.getKeys().asArray);
       notifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      return { notifications };
+      return notifications;
     },
     {
       query: t.Object({}),
       response: {
-        200: t.Object({
-          notifications: t.Array(
-            t.Object({
-              id: t.String({ description: '공지 ID' }),
-              title: t.String({ description: '공지 제목', default: '제목' }),
-              content: t.String({ description: '공지 내용', default: '내용' }),
-              date: t.String({ description: '공지 날짜', default: '2025-03-08T05:52:06.583Z' }),
-            })
-          ),
-        }),
+        200: t.Array(
+          t.Object({
+            id: t.String({ description: '공지 ID' }),
+            title: t.String({ description: '공지 제목', default: '제목' }),
+            content: t.String({ description: '공지 내용', default: '내용' }),
+            date: t.String({ description: '공지 날짜', default: '2025-03-08T05:52:06.583Z' }),
+          })
+        ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
       detail: { summary: '공지 목록' },
