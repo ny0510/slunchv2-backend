@@ -6,6 +6,7 @@ import { logger } from '@tqman/nice-logger';
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
 import notifications from './routes/notifications';
+import fcm from "./routes/fcm";
 import { cronjob } from './libraries/cache';
 
 export const app = new Elysia()
@@ -47,6 +48,7 @@ export const app = new Elysia()
   .use(comcigan)
   .use(neis)
   .use(notifications)
+  .use(fcm)
   .listen(process.env.PORT ?? 3000);
 
 console.log(`

@@ -24,8 +24,7 @@ async function _getResponse(url: string, query: Record<string, string> = {}, hea
         method: method,
         body: JSON.stringify(body),
       }),
-    )
-    .then(async (res) => res);
+    );
 }
 
 async function getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'GET') {
@@ -102,4 +101,27 @@ describe('notifications', () => {
   //  expect(await getResponse(url)).toEqual(notifications)
   //})
 });
+
+describe('fcm',async () => {
+  const url = '/fcm';
+  const collection = db.openDB({ name: 'fcm' });
+  await collection.put('test', { token: 'test', time: '01:00' });
+  it('post invalid token', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00' })).toBe(422);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '24:59' })).toBe(422);
+  })
+  //it('post fcm', async () => {
+  //  expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00' })).toBe(200);
+  //  expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00' })).toBe(409);
+  //})
+  it('get fcm', async () => {
+    expect(await getResponse(url, {token: 'test'})).toEqual({ token: 'test', time: '01:00' });
+    expect(await getResponseStatus(url, {token: 'notexist'}, {}, {}, 'GET')).toBe(404);
+  })
+  //it('delete fcm', async () => {
+  //  expect(await getResponseStatus(url, {}, {}, { token: 'notexist'}, 'DELETE')).toBe(404);
+  //  expect(await getResponseStatus(url, {}, {}, { token: 'test' }, 'DELETE')).toBe(200);
+  //  expect(await getResponseStatus(url, {token: 'test'}, {}, {}, 'GET')).toBe(404);
+  //})
+})
 
