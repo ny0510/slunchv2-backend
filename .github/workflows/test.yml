@@ -20,7 +20,7 @@ jobs:
 
       - name: setup firebase credentials
         run: |
-          echo "${{ secrets.FIREBASE_CREDENTIALS }}" > serviceAccountKey.json
+          echo "${{ secrets.FIREBASE_CREDENTIALS }}" | base64 -d > serviceAccountKey.json
 
       - name: install dependencies
         run: bun install
