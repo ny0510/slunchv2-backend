@@ -20,7 +20,7 @@ jobs:
 
       - name: setup firebase credentials
         run: |
-          echo $FIREBASE_CREDENTIALS > firebase-credentials.json
+          echo $FIREBASE_CREDENTIALS > serviceAccountKey.json
 
       - name: install dependencies
         run: bun install
