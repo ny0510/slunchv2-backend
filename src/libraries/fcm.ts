@@ -11,7 +11,7 @@ const collection = db.openDB({ name: 'fcm' });
 
 export const sendFcm = cron({
   name: 'sendFcm',
-  pattern: Patterns.EVERY_SECOND,
+  pattern: Patterns.EVERY_MINUTE,
   async run() {
     try {
       const now = new Date();
