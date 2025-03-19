@@ -12,7 +12,7 @@ export const sendFcm = cron({
   name: 'sendFcm',
   pattern: Patterns.EVERY_MINUTE,
   async run() {
-    const currentTime = new Date().toISOString().slice(11, 16);
+    const currentTime = `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
     const tokens = collection
       .getKeys()
       .map((token) => collection.get(token))
