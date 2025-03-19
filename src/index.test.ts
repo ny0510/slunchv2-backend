@@ -17,14 +17,13 @@ async function _getResponse(url: string, query: Record<string, string> = {}, hea
     }
     final_url += `${encodeURI(v)}=${encodeURI(query[v])}`;
   }
-  return await app
-    .handle(
-      new Request(final_url, {
-        headers: headers,
-        method: method,
-        body: JSON.stringify(body),
-      }),
-    );
+  return await app.handle(
+    new Request(final_url, {
+      headers: headers,
+      method: method,
+      body: JSON.stringify(body),
+    })
+  );
 }
 
 async function getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'GET') {
@@ -40,7 +39,7 @@ describe('comcigan', () => {
     expect(
       await getResponse('/comcigan/search', {
         schoolName: '선린인터넷고',
-      }),
+      })
     ).toEqual([{ schoolName: '선린인터넷고', schoolCode: 41896, region: '서울' }]);
   });
 });
@@ -51,7 +50,7 @@ describe('neis', () => {
     expect(
       await getResponse(url + 'search', {
         schoolName: '선린인터넷고등학교',
-      }),
+      })
     ).toEqual([{ schoolName: '선린인터넷고등학교', schoolCode: '7010536', region: '서울특별시교육청', regionCode: 'B10' }]);
   });
   it('meal (only on cache)', async () => {
@@ -67,7 +66,7 @@ describe('neis', () => {
         showAllergy: 'true',
         showOrigin: 'true',
         showNutrition: 'true',
-      }),
+      })
     ).toEqual(data);
   });
 });
@@ -102,26 +101,25 @@ describe('notifications', () => {
   //})
 });
 
-describe('fcm',async () => {
+describe('fcm', async () => {
   const url = '/fcm';
   const collection = db.openDB({ name: 'fcm' });
-  await collection.put('test', { token: 'test', time: '01:00' });
+  await collection.put('test', { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
   it('post invalid token', async () => {
-    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00' })).toBe(422);
-    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '24:59' })).toBe(422);
-  })
-  //it('post fcm', async () => {
-  //  expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00' })).toBe(200);
-  //  expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00' })).toBe(409);
-  //})
+    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00', schoolCode: '12345', regionCode: 'A1' })).toBe(422);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '24:59', schoolCode: '12345', regionCode: 'A1' })).toBe(422);
+  });
+  // it('post fcm', async () => {
+  //   expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' })).toBe(200);
+  //   expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' })).toBe(409);
+  // });
   it('get fcm', async () => {
-    expect(await getResponse(url, {token: 'test'})).toEqual({ token: 'test', time: '01:00' });
-    expect(await getResponseStatus(url, {token: 'notexist'}, {}, {}, 'GET')).toBe(404);
-  })
-  //it('delete fcm', async () => {
-  //  expect(await getResponseStatus(url, {}, {}, { token: 'notexist'}, 'DELETE')).toBe(404);
-  //  expect(await getResponseStatus(url, {}, {}, { token: 'test' }, 'DELETE')).toBe(200);
-  //  expect(await getResponseStatus(url, {token: 'test'}, {}, {}, 'GET')).toBe(404);
-  //})
-})
-
+    expect(await getResponse(url, { token: 'test' })).toEqual({ token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
+    expect(await getResponseStatus(url, { token: 'notexist' }, {}, {}, 'GET')).toBe(404);
+  });
+  // it('delete fcm', async () => {
+  //   expect(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE')).toBe(404);
+  //   expect(await getResponseStatus(url, {}, {}, { token: 'test' }, 'DELETE')).toBe(200);
+  //   expect(await getResponseStatus(url, { token: 'test' }, {}, {}, 'GET')).toBe(404);
+  // });
+});

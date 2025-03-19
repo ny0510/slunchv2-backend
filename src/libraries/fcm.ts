@@ -1,6 +1,7 @@
 import cron, { Patterns } from '@elysiajs/cron';
 import { db } from './db';
 import admin from 'firebase-admin';
+import { getMeal } from './cache';
 
 admin.initializeApp({
   credential: admin.credential.cert('serviceAccountKey.json'),
@@ -10,16 +11,21 @@ const collection = db.openDB({ name: 'fcm' });
 
 export const sendFcm = cron({
   name: 'sendFcm',
-  pattern: Patterns.EVERY_MINUTE,
+  pattern: Patterns.EVERY_SECOND,
   async run() {
-    const currentTime = `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
-    const tokens = collection
-      .getKeys()
-      .map((token) => collection.get(token))
-      .filter((token) => token.time === currentTime);
+    try {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    for (const token of tokens) {
-      await sendNotification(token.value, 'title', 'body');
+      for (const v of collection.getKeys()) {
+        const { token, time, schoolCode, regionCode } = collection.get(v.toString());
+        const meal = await getMeal(schoolCode, regionCode, `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`);
+        if (time === currentTime) {
+          await sendNotification(token, '🍴 오늘의 급식', meal[0].meal.join(' / ').trim());
+        }
+      }
+    } catch (error) {
+      console.error('Error sending FCM:', error);
     }
   },
 });

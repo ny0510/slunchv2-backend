@@ -24,6 +24,8 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
         200: t.Object({
           token: t.String({ description: 'fcm 토큰' }),
           time: t.String({ description: '알림 시간', example: '07:00' }),
+          schoolCode: t.String({ description: '학교 코드' }),
+          regionCode: t.String({ description: '지역 코드' }),
         }),
         404: t.Object({ message: t.String() }),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
@@ -33,9 +35,11 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
   .post(
     '/',
     async ({ body }) => {
-      const { token, time } = body;
+      const { token, time, schoolCode, regionCode } = body;
       if (!token) throw error(400, '토큰을 입력해주세요.');
       if (!time) throw error(400, '알림 시간을 입력해주세요.');
+      if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
+      if (!regionCode) throw error(400, '지역 코드를 입력해주세요.');
 
       const [hour, minute] = time.split(':').map(Number);
 
@@ -44,20 +48,24 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
 
       if (collection.doesExist(token)) throw error(409, '이미 존재하는 토큰이에요.');
 
-      await collection.put(token, { token, time });
+      await collection.put(token, { token, time, schoolCode, regionCode });
 
-      return { token, time };
+      return { token, time, schoolCode, regionCode };
     },
     {
       body: t.Object({
         token: t.String({ description: 'fcm 토큰' }),
         time: t.String({ description: '알림 시간', example: '07:00' }),
+        schoolCode: t.String({ description: '학교 코드' }),
+        regionCode: t.String({ description: '지역 코드' }),
       }),
       detail: { summary: 'fcm 토큰 추가' },
       response: {
         200: t.Object({
           token: t.String({ description: 'fcm 토큰' }),
           time: t.String({ description: '알림 시간', example: '07:00' }),
+          schoolCode: t.String({ description: '학교 코드' }),
+          regionCode: t.String({ description: '지역 코드' }),
         }),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         409: t.Object({ message: t.String() }, { description: '에러 메시지' }),
@@ -80,7 +88,7 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
     },
     {
       body: t.Object({
-        token: t.String({ description: 'fcm 토큰' }),
+        token: t.String(),
       }),
       detail: { summary: 'fcm 토큰 삭제' },
       response: {
@@ -93,9 +101,11 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
   .put(
     '/',
     async ({ body }) => {
-      const { token, time } = body;
+      const { token, time, schoolCode, regionCode } = body;
       if (!token) throw error(400, '토큰을 입력해주세요.');
       if (!time) throw error(400, '알림 시간을 입력해주세요.');
+      if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
+      if (!regionCode) throw error(400, '지역 코드를 입력해주세요.');
 
       const [hour, minute] = time.split(':').map(Number);
 
@@ -104,20 +114,24 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
 
       if (!collection.doesExist(token)) throw error(404, '토큰을 찾을 수 없어요.');
 
-      await collection.put(token, { token, time });
+      await collection.put(token, { token, time, schoolCode, regionCode });
 
-      return { token, time };
+      return { token, time, schoolCode, regionCode };
     },
     {
       body: t.Object({
         token: t.String({ description: 'fcm 토큰' }),
         time: t.String({ description: '알림 시간', example: '07:00' }),
+        schoolCode: t.String({ description: '학교 코드' }),
+        regionCode: t.String({ description: '지역 코드' }),
       }),
       detail: { summary: 'fcm 토큰 시간 수정' },
       response: {
         200: t.Object({
           token: t.String({ description: 'fcm 토큰' }),
           time: t.String({ description: '알림 시간', example: '07:00' }),
+          schoolCode: t.String({ description: '학교 코드' }),
+          regionCode: t.String({ description: '지역 코드' }),
         }),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
