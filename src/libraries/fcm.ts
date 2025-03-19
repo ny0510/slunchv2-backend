@@ -30,7 +30,7 @@ async function sendNotification(token: string, title: string, message: string) {
       title,
       body: message,
     },
-    token,
+    token: token,
   };
 
   try {
