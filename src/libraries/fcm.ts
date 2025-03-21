@@ -2,6 +2,7 @@ import cron, { Patterns } from '@elysiajs/cron';
 import { db } from './db';
 import admin from 'firebase-admin';
 import { getMeal } from './cache';
+import { write } from 'bun';
 
 admin.initializeApp({
   credential: admin.credential.cert('serviceAccountKey.json'),
@@ -26,6 +27,7 @@ export const sendFcm = cron({
       }
     } catch (error) {
       console.error('Error sending FCM:', error);
+      await write('fcm_errors.log', `${new Date().toISOString()} - Error sending FCM: ${error}\n`);
     }
   },
 });
@@ -42,7 +44,9 @@ async function sendNotification(token: string, title: string, message: string) {
   try {
     await admin.messaging().send(payload);
     console.log(`Notification sent to ${token} at ${new Date().toISOString()}`);
+    await write('fcm_notifications.log', `${new Date().toISOString()} - Notification sent to ${token}: ${title} - ${message}\n`);
   } catch (error) {
     console.error(`Error sending notification to ${token}:`, error);
+    await write('fcm_errors.log', `${new Date().toISOString()} - Error sending notification to ${token}: ${error}\n`);
   }
 }

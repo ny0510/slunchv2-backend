@@ -2,6 +2,8 @@ import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { staticPlugin } from '@elysiajs/static';
 import { logger } from '@tqman/nice-logger';
+import fs from 'node:fs/promises';
+import path from 'path';
 
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
@@ -9,6 +11,9 @@ import notifications from './routes/notifications';
 import fcm from './routes/fcm';
 import { refreshCache } from './libraries/cache';
 import { sendFcm } from './libraries/fcm';
+
+const logsDir = path.join(__dirname, '..', 'logs');
+fs.access(logsDir).catch(() => fs.mkdir(logsDir));
 
 export const app = new Elysia()
   .use(
@@ -32,7 +37,6 @@ export const app = new Elysia()
       },
     })
   )
-  // .use(Logestic.preset('fancy'))
   .use(
     logger({
       mode: 'live',
