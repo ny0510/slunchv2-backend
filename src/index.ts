@@ -62,6 +62,6 @@ export const app = new Elysia()
   .listen(process.env.PORT ?? 3000);
 
 console.log(`
-    🍤 Slunch-V2 backend is running at ${app.server!.url}
-    📄 Swagger documentation is available at ${app.server!.url}swagger
-    `);
+🍤 Slunch-V2 backend is running at ${app.server!.url}
+📄 Swagger documentation is available at ${app.server!.url}swagger
+`);
