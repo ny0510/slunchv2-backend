@@ -60,3 +60,8 @@ export const app = new Elysia()
     if (code === 'NOT_FOUND') return redirect(susVideo());
   })
   .listen(process.env.PORT ?? 3000);
+
+console.log(`
+    🍤 Slunch-V2 backend is running at ${app.server!.url}
+    📄 Swagger documentation is available at ${app.server!.url}swagger
+    `);
