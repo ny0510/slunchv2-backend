@@ -12,6 +12,7 @@
 		"@tqman/nice-logger": "^1.1.1",
 		"comcigan.ts": "^1.2.2",
 		"elysia": "latest",
+		"elysia-rate-limit": "^4.2.1",
 		"firebase-admin": "^13.2.0",
 		"google-auth-library": "^9.15.1",
 		"lmdb": "^3.2.6",
