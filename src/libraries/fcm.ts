@@ -22,7 +22,12 @@ export const sendFcm = cron({
         const { token, time, schoolCode, regionCode } = collection.get(v.toString());
         const meal = await getMeal(schoolCode, regionCode, `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`);
         if (time === currentTime) {
-          await sendNotification(token, '🍴 오늘의 급식', meal[0].meal.join(' / ').trim());
+          const title = '🍴 오늘의 급식';
+          const message = meal[0].meal.join(' / ').trim();
+
+          await sendNotification(token, title, message).then(async () => {
+            await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
+          });
         }
       }
     } catch (error) {
@@ -44,7 +49,6 @@ async function sendNotification(token: string, title: string, message: string) {
   try {
     await admin.messaging().send(payload);
     console.log(`Notification sent to ${token} at ${new Date().toISOString()}`);
-    await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Notification sent to ${token}: ${title} - ${message}\n`);
   } catch (error) {
     console.error(`Error sending notification to ${token}:`, error);
     await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending notification to ${token}: ${error}\n`);
