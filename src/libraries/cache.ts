@@ -56,17 +56,7 @@ export const refreshCache = cron({
   pattern: Patterns.EVERY_DAY_AT_1AM,
   async run() {
     console.log('start refresh cache');
-    const now = new Date();
-    for (const v of collection.getKeys()) {
-      const key = v.toString();
-      const dateValue: string = key.split('_')[0];
-      const date = new Date(dateValue);
-      date.setHours(23, 59, 59);
-      if (date < now) {
-        console.log(`delete ${key}, dateValue is ${dateValue}`);
-        await collection.remove(key);
-      }
-    }
+    await collection.clearAsync();
     console.log('refresh cache finished');
   },
 });
