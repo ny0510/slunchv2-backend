@@ -32,7 +32,7 @@ export const sendFcm = cron({
       }
     } catch (error) {
       console.error('Error sending FCM:', error);
-      await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending FCM: ${error}\n`);
+      await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending FCM: ${JSON.stringify(error)}\n`);
     }
   },
 });
@@ -51,6 +51,6 @@ async function sendNotification(token: string, title: string, message: string) {
     console.log(`Notification sent to ${token} at ${new Date().toISOString()}`);
   } catch (error) {
     console.error(`Error sending notification to ${token}:`, error);
-    await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending notification to ${token}: ${error}\n`);
+    await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending notification to ${token}: ${JSON.stringify(error)}\n`);
   }
 }
