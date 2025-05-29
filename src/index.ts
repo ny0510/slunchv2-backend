@@ -6,12 +6,12 @@ import { rateLimit } from 'elysia-rate-limit';
 import fs from 'node:fs/promises';
 import path from 'path';
 
-import comcigan from './routes/comcigan';
-import neis from './routes/neis';
-import notifications from './routes/notifications';
-import fcm from './routes/fcm';
-import { refreshCache } from './libraries/cache';
-import { sendFcm } from './libraries/fcm';
+import comcigan from './routes/comcigan.ts';
+import neis from './routes/neis.ts';
+import notifications from './routes/notifications.ts';
+import fcm from './routes/fcm.ts';
+import { refreshCache } from './libraries/cache.ts';
+import { sendFcm } from './libraries/fcm.ts';
 
 const logsDir = path.join(__dirname, '..', 'logs');
 fs.access(logsDir).catch(() => fs.mkdir(logsDir));

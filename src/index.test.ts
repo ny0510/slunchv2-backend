@@ -1,7 +1,7 @@
-import { expect, describe, it } from 'bun:test';
-import { app } from './index';
-import { db } from './libraries/db';
-import { Cache } from './libraries/cache';
+import { assertEquals } from "@std/assert"
+import { app } from './index.ts';
+import { db } from './libraries/db.ts';
+import { Cache } from './libraries/cache.ts';
 
 const default_url = 'http://localhost:3000';
 
@@ -34,29 +34,30 @@ async function getResponseStatus(url: string, query: Record<string, string> = {}
   return (await _getResponse(url, query, headers, body, method)).status;
 }
 
-describe('comcigan', () => {
-  it('search', async () => {
-    expect(
+Deno.test('comcigan', (t) => {
+  t.step('search', async () => {
+    assertEquals(
       await getResponse('/comcigan/search', {
         schoolName: '선린인터넷고',
-      })
-    ).toEqual([{ schoolName: '선린인터넷고', schoolCode: 41896, region: '서울' }]);
+      }), [{ schoolName: '선린인터넷고', schoolCode: 41896, region: '서울' }]
+    );
   });
 });
 
-describe('neis', () => {
+Deno.test('neis', (t) => {
   const url = '/neis/';
-  it('search', async () => {
-    expect(
+  t.step('search', async () => {
+    assertEquals(
       await getResponse(url + 'search', {
         schoolName: '선린인터넷고등학교',
-      })
-    ).toEqual([{ schoolName: '선린인터넷고등학교', schoolCode: '7010536', region: '서울특별시교육청', regionCode: 'B10' }]);
+      }),
+      [{ schoolName: '선린인터넷고등학교', schoolCode: '7010536', region: '서울특별시교육청', regionCode: 'B10' }]
+    );
   });
-  it('meal (only on cache)', async () => {
-    const data: Cache[] = JSON.parse(await Bun.file('./tests/meal_data.json').text());
+  t.step('meal (only on cache)', async () => {
+    const data: Cache[] = JSON.parse(await Deno.readTextFile('./tests/meal_data.json'));
     await db.openDB({ name: 'meal' }).put(`B10_7010536_${data[0].date}`, data[0]);
-    expect(
+    assertEquals(
       await getResponse(url + 'meal', {
         schoolCode: '7010536',
         regionCode: 'B10',
@@ -66,12 +67,12 @@ describe('neis', () => {
         showAllergy: 'true',
         showOrigin: 'true',
         showNutrition: 'true',
-      })
-    ).toEqual(data);
+      }), data
+    );
   });
 });
 
-describe('notifications', () => {
+Deno.test('notifications', (t) => {
   const url = '/notifications/';
   const notifications = [
     {
@@ -85,41 +86,45 @@ describe('notifications', () => {
       date: '2025-03-08T05:52:06.582Z',
     },
   ];
-  it('post without token', async () => {
-    expect(await getResponseStatus(url, {}, {}, notifications[0])).toBe(422);
+  t.step('post without token', async () => {
+    assertEquals(await getResponseStatus(url, {}, {}, notifications[0]), 422);
   });
-  it('post with invalid token', async () => {
-    expect(await getResponseStatus(url, {}, { Token: 'invalid' }, notifications[0])).toBe(403);
+  t.step('post with invalid token', async () => {
+    assertEquals(await getResponseStatus(url, {}, { Token: 'invalid' }, notifications[0]), 403);
   });
-  it('post', async () => {
+  t.step('post', async () => {
     for (const notification of notifications) {
-      expect(await getResponseStatus(url, {}, { Token: process.env.ADMIN_KEY ?? '' }, notification)).toBe(200);
+      assertEquals(await getResponseStatus(url, {}, { Token: Deno.env.get("ADMIN_KEY") ?? '' }, notification), 200);
     }
   });
-  //it('get', async () => {
-  //  expect(await getResponse(url)).toEqual(notifications)
-  //})
+  t.step('get', async () => {
+    assertEquals(await getResponse(url), notifications)
+  })
 });
 
-describe('fcm', async () => {
+Deno.test('fcm', async (t) => {
   const url = '/fcm';
   const collection = db.openDB({ name: 'fcm' });
   await collection.put('test', { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
-  it('post invalid token', async () => {
-    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00', schoolCode: '12345', regionCode: 'A1' })).toBe(422);
-    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '24:59', schoolCode: '12345', regionCode: 'A1' })).toBe(422);
+  t.step('post invalid token', async () => {
+    assertEquals(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00', schoolCode: '12345', regionCode: 'A1' }), 422);
+    assertEquals(await getResponseStatus(url, {}, {}, { token: 'test', time: '24:59', schoolCode: '12345', regionCode: 'A1' }), 422);
   });
-  // it('post fcm', async () => {
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' })).toBe(200);
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' })).toBe(409);
-  // });
-  it('get fcm', async () => {
-    expect(await getResponse(url, { token: 'test' })).toEqual({ token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
-    expect(await getResponseStatus(url, { token: 'notexist' }, {}, {}, 'GET')).toBe(404);
+  t.step('post fcm', async () => {
+    assertEquals(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' }), 200);
+    assertEquals(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' }), 409);
   });
-  // it('delete fcm', async () => {
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE')).toBe(404);
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'test' }, 'DELETE')).toBe(200);
-  //   expect(await getResponseStatus(url, { token: 'test' }, {}, {}, 'GET')).toBe(404);
-  // });
+  t.step('get fcm', async () => {
+    assertEquals(
+      await getResponse(url, { token: 'test' }),
+      {token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1'}
+    );
+    assertEquals(await getResponseStatus(url, { token: 'notexist' }, {}, {}, 'GET'), 404);
+  });
+  t.step('delete fcm', async () => {
+    assertEquals(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE'), 404);
+    assertEquals(await getResponseStatus(url, {}, {}, { token: 'test' }, 'DELETE'), 200);
+    assertEquals(await getResponseStatus(url, { token: 'test' }, {}, {}, 'GET'), 404);
+  });
 });
+

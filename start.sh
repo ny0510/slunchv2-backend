@@ -1,4 +1,4 @@
 #!/bin/bash
 
 git pull
-PORT=80 bun run src/index.ts
+PORT=80 deno run src/index.ts
