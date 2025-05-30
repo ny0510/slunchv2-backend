@@ -1,6 +1,7 @@
 import { Elysia, error, t } from 'elysia';
 import Comcigan, { School, Weekday } from 'comcigan.ts';
 
+// @ts-ignore: comcigan library sucks
 const comcigan = new Comcigan();
 
 const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
@@ -132,7 +133,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
       try {
         const timetable = await comcigan.getTimetable(schoolCode);
 
-        return timetable.map((grade, gradeIndex) => ({
+        return timetable.map(({grade, gradeIndex}: {grade: number[], gradeIndex: number}) => ({
           grade: gradeIndex + 1,
           classes: grade.map((_, classIndex) => classIndex + 1),
         }));

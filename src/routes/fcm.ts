@@ -1,12 +1,12 @@
 import { Elysia, error, t } from 'elysia';
-import { db } from '../libraries/db';
+import { db } from '../libraries/db.ts';
 
 const collection = db.openDB({ name: 'fcm' });
 
 const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
   .get(
     '/',
-    async ({ query }) => {
+    ({ query }) => {
       if (!query.token) throw error(400, { message: '토큰을 입력해주세요.' });
 
       if (!collection.doesExist(query.token)) {

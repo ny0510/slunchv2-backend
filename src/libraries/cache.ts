@@ -1,8 +1,8 @@
-import cron, { Patterns } from '@elysiajs/cron';
-import Neis from 'neis.ts';
+import { cron, Patterns } from '@elysiajs/cron';
+import { Neis } from 'neis.ts';
 
-import { db } from './db';
-import { error } from 'elysia';
+import { db } from './db.ts';
+import { error } from "elysia";
 
 const allergyTypes: Record<number, string> = {
   1: '난류',
@@ -27,7 +27,7 @@ const allergyTypes: Record<number, string> = {
 };
 
 export const neis = new Neis({
-  key: process.env.NEIS_API_KEY,
+  key: Deno.env.get("NEIS_API_KEY"),
 });
 
 const collection = db.openDB({ name: 'meal' });
@@ -69,7 +69,7 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
       return x ?? '';
     };
     if (cachedMeal != null && cachedMeal != undefined) {
-      let v = cachedMeal;
+      const v = cachedMeal;
       return [
         {
           date: v.date,

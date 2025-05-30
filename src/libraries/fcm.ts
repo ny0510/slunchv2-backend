@@ -1,7 +1,7 @@
-import cron, { Patterns } from '@elysiajs/cron';
-import { db } from './db';
+import { cron, Patterns } from '@elysiajs/cron';
+import { db } from './db.ts';
 import admin from 'firebase-admin';
-import { getMeal } from './cache';
+import { getMeal } from './cache.ts';
 import { appendFile } from 'node:fs/promises';
 
 admin.initializeApp({

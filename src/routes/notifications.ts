@@ -1,7 +1,8 @@
-import { randomUUIDv7 as randomUUID } from 'bun';
+import { generate } from 'jsr:@babia/uuid-v7';
 
 import { Elysia, error, t } from 'elysia';
-import { db } from '../libraries/db';
+import { db } from '../libraries/db.ts';
+import { hash, verify } from "jsr:@bronti/argon2"
 
 interface Notification {
   id: string;
@@ -11,11 +12,11 @@ interface Notification {
 }
 
 const collection = db.openDB({ name: 'notifications', cache: true });
-const password = process.env.ADMIN_KEY;
+const password = Deno.env.get("ADMIN_KEY");
 if (password === undefined) {
   throw new Error('ADMIN_KEY is not defined');
 }
-const hash = await Bun.password.hash(password);
+const passwordHash = hash(password);
 
 const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
   .get(
@@ -52,11 +53,11 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       if (!content) throw error(400, { message: '내용을 입력해주세요.' });
       if (!date) throw error(400, { message: '날짜를 입력해주세요.' });
 
-      if (!(await Bun.password.verify(token, hash))) {
+      if (!verify(token, passwordHash)) {
         throw error(403, { message: '권한이 없습니다.' });
       }
 
-      const id = randomUUID();
+      const id = generate();
       await collection.put(id, { id, title, content, date });
 
       return { id, title, content, date };
@@ -90,7 +91,7 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       const { token } = headers;
       if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
 
-      if (!(await Bun.password.verify(token, hash))) {
+      if (!verify(token, passwordHash)) {
         throw error(403, { message: '권한이 없습니다.' });
       }
 
@@ -117,7 +118,7 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
       if (!id) throw error(400, { message: 'ID를 입력해주세요.' });
 
-      if (!(await Bun.password.verify(token, hash))) {
+      if (!verify(token, passwordHash)) {
         throw error(403, { message: '권한이 없습니다.' });
       }
 
@@ -151,7 +152,7 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       if (!content) throw error(400, { message: '내용을 입력해주세요.' });
       if (!date) throw error(400, { message: '날짜를 입력해주세요.' });
 
-      if (!(await Bun.password.verify(token, hash))) {
+      if (!verify(token, passwordHash)) {
         throw error(403, { message: '권한이 없습니다.' });
       }
 

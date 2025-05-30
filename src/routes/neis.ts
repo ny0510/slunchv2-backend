@@ -1,5 +1,5 @@
 import { Elysia, error, t } from 'elysia';
-import { getMeal, neis } from '../libraries/cache';
+import { getMeal, neis } from '../libraries/cache.ts';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
@@ -52,7 +52,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   )
   .get(
     '/meal',
-    async ({ query }) => {
+    ({ query }) => {
       const { schoolCode, regionCode, year, month, day, showAllergy, showOrigin, showNutrition } = query;
       if (!schoolCode) throw error(400, { message: '학교 코드를 입력해주세요.' });
       if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });

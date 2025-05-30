@@ -1,10 +1,10 @@
-import Elysia, { redirect } from 'elysia';
+import { Elysia, redirect } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { staticPlugin } from '@elysiajs/static';
 import { logger } from '@tqman/nice-logger';
 import { rateLimit } from 'elysia-rate-limit';
 import fs from 'node:fs/promises';
-import path from 'path';
+import { join } from '@std/path';
 
 import comcigan from './routes/comcigan.ts';
 import neis from './routes/neis.ts';
@@ -13,7 +13,7 @@ import fcm from './routes/fcm.ts';
 import { refreshCache } from './libraries/cache.ts';
 import { sendFcm } from './libraries/fcm.ts';
 
-const logsDir = path.join(__dirname, '..', 'logs');
+const logsDir = join(__dirname, '..', 'logs');
 fs.access(logsDir).catch(() => fs.mkdir(logsDir));
 
 const susVideo = (): string => {
@@ -56,10 +56,10 @@ export const app = new Elysia()
   .use(notifications)
   .use(fcm)
 
-  .onError(({ code }) => {
+  .onError(({ code }: { code: string }) => {
     if (code === 'NOT_FOUND') return redirect(susVideo());
   })
-  .listen(process.env.PORT ?? 3000);
+  .listen(Number(Deno.env.get("PORT")) ?? 3000);
 
 console.log(`
 🍤 Slunch-V2 backend is running at ${app.server!.url}
