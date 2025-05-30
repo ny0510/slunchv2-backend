@@ -3,7 +3,8 @@
   "tasks": {
     "install": "deno install --allow-scripts",
     "dev": "deno run --allow-net --allow-read --allow-env --watch src/index.ts",
-    "test": "deno test"
+    "prod": "deno run --allow-net --allow-read --allow-env src/index.ts",
+    "test": "deno test --allow-read --allow-env --allow-net"
   },
   "imports": {
     "@babia/uuid-v7": "jsr:@babia/uuid-v7@^0.4.0",

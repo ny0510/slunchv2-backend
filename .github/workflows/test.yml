@@ -10,9 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: denoland/setup-deno@v2
         with:
-          bun-version: latest
+          deno-version: v2.x
 
       - name: setup .env
         run: |
@@ -23,7 +23,7 @@ jobs:
           echo "${{ secrets.FIREBASE_CREDENTIALS }}" | base64 -d > serviceAccountKey.json
 
       - name: install dependencies
-        run: bun install
+        run: deno install
 
       - name: test
-        run: bun test
+        run: deno test --allow-env
