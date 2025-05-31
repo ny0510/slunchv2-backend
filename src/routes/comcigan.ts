@@ -1,8 +1,7 @@
 import { Elysia, error, t } from 'elysia';
-import Comcigan, { School, Weekday } from 'comcigan.ts';
+import { Client, School, Weekday } from 'https://raw.githubusercontent.com/MisileLab/comcigan.ts/refs/heads/main/src/index.ts';
 
-// @ts-ignore: comcigan library sucks
-const comcigan = new Comcigan();
+const comcigan = new Client();
 
 const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
   .get(

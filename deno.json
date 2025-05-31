@@ -15,7 +15,6 @@
     "@std/expect": "jsr:@std/expect@^1.0.16",
     "@std/path": "jsr:@std/path@^1.1.0",
     "@tqman/nice-logger": "npm:@tqman/nice-logger@1.1.1",
-    "comcigan.ts": "npm:comcigan.ts@1.2.2",
     "elysia": "npm:elysia@latest",
     "elysia-rate-limit": "npm:elysia-rate-limit@4.4.0",
     "firebase-admin": "npm:firebase-admin@13.4.0",

@@ -20,8 +20,6 @@
     "npm:@tqman/nice-logger@1.1.1": "1.1.1_elysia@1.3.3__@sinclair+typebox@0.34.33__exact-mirror@0.1.2___@sinclair+typebox@0.34.33__file-type@21.0.0__openapi-types@12.1.3__typescript@5.8.3",
     "npm:@tqman/nice-logger@^1.1.1": "1.1.1_elysia@1.3.3__@sinclair+typebox@0.34.33__exact-mirror@0.1.2___@sinclair+typebox@0.34.33__file-type@21.0.0__openapi-types@12.1.3__typescript@5.8.3",
     "npm:bun-types@latest": "1.2.15",
-    "npm:comcigan.ts@1.2.2": "1.2.2",
-    "npm:comcigan.ts@^1.2.2": "1.2.2",
     "npm:elysia-rate-limit@4.4.0": "4.4.0_elysia@1.3.3__@sinclair+typebox@0.34.33__exact-mirror@0.1.2___@sinclair+typebox@0.34.33__file-type@21.0.0__openapi-types@12.1.3__typescript@5.8.3",
     "npm:elysia-rate-limit@^4.3.0": "4.4.0_elysia@1.3.3__@sinclair+typebox@0.34.33__exact-mirror@0.1.2___@sinclair+typebox@0.34.33__file-type@21.0.0__openapi-types@12.1.3__typescript@5.8.3",
     "npm:elysia@latest": "1.3.3_@sinclair+typebox@0.34.33_exact-mirror@0.1.2__@sinclair+typebox@0.34.33_file-type@21.0.0_openapi-types@12.1.3_typescript@5.8.3",
@@ -730,13 +728,6 @@
         "delayed-stream"
       ]
     },
-    "comcigan.ts@1.2.2": {
-      "integrity": "sha512-Vd7gGfNfbGOpa0dH6wL08i60gugebzaGaXVVtPRgvJ31kM91VHLsY6i4guYf5txlINQsP7G4Kpn82l9Ydtew0w==",
-      "dependencies": [
-        "iconv-lite@0.6.3",
-        "undici"
-      ]
-    },
     "cookie@1.0.2": {
       "integrity": "sha512-9Kr/j4O16ISv8zBBhJoi4bXOYNTkFLOqSL3UDB0njXxCXNezjeyVrJyGOWtgfs/q2km1gwBcfH8q1yEGoMYunA=="
     },
@@ -858,7 +849,7 @@
       "integrity": "sha512-hMQ4CX1p1izmuLYyZqLMO/qGNw10wSv9QDCPfzXfyFrOaCSSoRfqE1Kf1s5an66J5JZC62NewG+mK49jOCtQew==",
       "dependencies": [
         "chardet",
-        "iconv-lite@0.4.24",
+        "iconv-lite",
         "tmp"
       ]
     },
@@ -1075,12 +1066,6 @@
     },
     "iconv-lite@0.4.24": {
       "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
-      "dependencies": [
-        "safer-buffer"
-      ]
-    },
-    "iconv-lite@0.6.3": {
-      "integrity": "sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==",
       "dependencies": [
         "safer-buffer"
       ]
@@ -1502,9 +1487,6 @@
     "undici-types@6.20.0": {
       "integrity": "sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg=="
     },
-    "undici@6.21.3": {
-      "integrity": "sha512-gBLkYIlEnSp8pFbT64yFgGE6UIB9tAkhukC23PmMDCe5Nd+cRqKxSjw5y54MK2AZMgZfJWMaNE4nYUHgi1XEOw=="
-    },
     "util-deprecate@1.0.2": {
       "integrity": "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw=="
     },
@@ -1597,6 +1579,9 @@
       "integrity": "sha512-lZHvSc2PpWdcfpHlyB33HA9nqP16GpC9IpiG4lYq9jZCJVLZNnWd6Y1cj79bcLSBKTkxepfpjckPv5Y5VOPlwA=="
     }
   },
+  "remote": {
+    "https://raw.githubusercontent.com/MisileLab/comcigan.ts/refs/heads/main/src/index.ts": "f002499cb32f002d77c2a8782b108c8f67894f93a26c8bfe34161c81cc8cd2a6"
+  },
   "workspace": {
     "dependencies": [
       "jsr:@babia/uuid-v7@0.4",
@@ -1607,7 +1592,6 @@
       "npm:@elysiajs/static@1.3.0",
       "npm:@elysiajs/swagger@1.3.0",
       "npm:@tqman/nice-logger@1.1.1",
-      "npm:comcigan.ts@1.2.2",
       "npm:elysia-rate-limit@4.4.0",
       "npm:elysia@latest",
       "npm:firebase-admin@13.4.0",
@@ -1623,7 +1607,6 @@
         "npm:@inquirer/prompts@^7.5.3",
         "npm:@tqman/nice-logger@^1.1.1",
         "npm:bun-types@latest",
-        "npm:comcigan.ts@^1.2.2",
         "npm:elysia-rate-limit@^4.3.0",
         "npm:elysia@latest",
         "npm:firebase-admin@^13.4.0",
