@@ -132,7 +132,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
       try {
         const timetable = await comcigan.getTimetable(schoolCode);
 
-        return timetable.map(({grade, gradeIndex}: {grade: number[], gradeIndex: number}) => ({
+        return timetable.map((grade, gradeIndex) => ({
           grade: gradeIndex + 1,
           classes: grade.map((_, classIndex) => classIndex + 1),
         }));

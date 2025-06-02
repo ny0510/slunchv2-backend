@@ -23,7 +23,7 @@ jobs:
           echo "${{ secrets.FIREBASE_CREDENTIALS }}" | base64 -d > serviceAccountKey.json
 
       - name: install dependencies
-        run: deno install
+        run: deno install --allow-scripts
 
       - name: test
-        run: deno test --allow-env
+        run: deno task test
