@@ -1,5 +1,5 @@
 import { Elysia, error, t } from 'elysia';
-import { getMeal, neis } from '../libraries/cache';
+import { getMeal, neis, search } from '../libraries/cache';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
@@ -8,27 +8,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
       const { schoolName } = query;
       if (!schoolName) throw error(400, { message: '학교 이름을 입력해주세요.' });
 
-      try {
-        const searchedSchools = await neis.getSchool({
-          SCHUL_NM: schoolName,
-          pSize: 100,
-        });
-
-        return searchedSchools
-          .filter((school) => school.SCHUL_KND_SC_NM !== '초등학교')
-          .map((school) => ({
-            schoolName: school.SCHUL_NM,
-            schoolCode: school.SD_SCHUL_CODE,
-            region: school.ATPT_OFCDC_SC_NM,
-            regionCode: school.ATPT_OFCDC_SC_CODE,
-          }));
-      } catch (e) {
-        const err = e as Error;
-        const message = err.message.replace(/INFO-\d+\s*/g, '');
-
-        if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
-        else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
-      }
+      return await search(schoolName);
     },
     {
       query: t.Object({

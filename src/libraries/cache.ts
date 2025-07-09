@@ -30,7 +30,9 @@ export const neis = new Neis({
   key: process.env.NEIS_API_KEY,
 });
 
-const collection = db.openDB({ name: 'meal' });
+const mealCollection = db.openDB({ name: 'meal' });
+const schoolCollection = db.openDB({ name: 'school', dupSort: true });
+const schoolInformationCollection = db.openDB({ name: 'schoolInformation' });
 
 interface Meal {
   date: string;
@@ -56,15 +58,26 @@ export const refreshCache = cron({
   pattern: Patterns.EVERY_DAY_AT_1AM,
   async run() {
     console.log('start refresh cache');
-    await collection.clearAsync();
+    await mealCollection.clearAsync();
     console.log('refresh cache finished');
+  },
+});
+
+export const refreshSchoolCache = cron({
+  name: 'refreshSchool',
+  pattern: Patterns.EVERY_WEEKEND,
+  async run() {
+    console.log('start refresh school cache');
+    await schoolCollection.clearAsync();
+    await schoolInformationCollection.clearAsync();
+    console.log('refresh school cache finished');
   },
 });
 
 export async function getMeal(school_code: string, region_code: string, mlsv_ymd: string, showAllergy: boolean = false, showOrigin: boolean = false, showNutrition: boolean = false): Promise<Meal[]> {
   try {
     const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
-    const cachedMeal: Cache | undefined | null = collection.get(`${region_code}_${school_code}_${db_date}`);
+    const cachedMeal: Cache | undefined | null = mealCollection.get(`${region_code}_${school_code}_${db_date}`);
     const unwrap = (x: string | null | undefined) => {
       return x ?? '';
     };
@@ -144,8 +157,8 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
           region_code: region_code,
         };
 
-        if (!collection.doesExist(`${region_code}_${school_code}_${resp_db.date}`)) {
-          await collection.put(`${region_code}_${school_code}_${resp_db.date}`, resp_db);
+        if (!mealCollection.doesExist(`${region_code}_${school_code}_${resp_db.date}`)) {
+          await mealCollection.put(`${region_code}_${school_code}_${resp_db.date}`, resp_db);
         }
 
         const resp: Meal = resp_db;
@@ -163,6 +176,49 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
   } catch (e) {
     const err = e as Error;
     const message = err.message.replace(/INFO-\d+\s*/g, '');
+    if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
+    else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
+  }
+}
+
+export interface SchoolSearchResult {
+  schoolName: string;
+  schoolCode: string;
+  region: string;
+  regionCode: string;
+}
+
+export async function search(schoolName: string): Promise<SchoolSearchResult[]> {
+  const school: string[] = Array.from(schoolCollection.getValues(schoolName));
+  if (school.length > 0) {
+    return school.map((s) => schoolInformationCollection.get(s) as SchoolSearchResult).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+  }
+  try {
+    const searchedSchools = await neis.getSchool({
+      SCHUL_NM: schoolName,
+      pSize: 100,
+    });
+
+    const schools = searchedSchools
+      .filter((school) => school.SCHUL_KND_SC_NM !== '초등학교')
+      .map((school) => ({
+        schoolName: school.SCHUL_NM,
+        schoolCode: school.SD_SCHUL_CODE,
+        region: school.ATPT_OFCDC_SC_NM,
+        regionCode: school.ATPT_OFCDC_SC_CODE,
+      }));
+
+    for (const school of schools) {
+      await schoolCollection.put(schoolName, school.schoolName);
+      if (schoolInformationCollection.doesExist(school.schoolName)) continue;
+      await schoolInformationCollection.put(school.schoolName, school);
+    }
+
+    return schools;
+  } catch (e) {
+    const err = e as Error;
+    const message = err.message.replace(/INFO-\d+\s*/g, '');
+
     if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
     else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
   }

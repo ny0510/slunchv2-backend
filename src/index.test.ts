@@ -1,7 +1,7 @@
 import { expect, describe, it } from 'bun:test';
 import { app } from './index';
 import { db } from './libraries/db';
-import { Cache } from './libraries/cache';
+import { Cache, SchoolSearchResult } from './libraries/cache';
 
 const default_url = 'http://localhost:3000';
 
@@ -47,11 +47,18 @@ describe('comcigan', () => {
 describe('neis', () => {
   const url = '/neis/';
   it('search', async () => {
+    const data: SchoolSearchResult[] = JSON.parse(await Bun.file('./tests/neis_data.json').text());
+    const collection = db.openDB({ name: 'school', dupSort: true });
+    const informationCollection = db.openDB({ name: 'schoolInformation' });
+    for (const v of data) {
+      await collection.put("서울", v.schoolName);
+      await informationCollection.put(v.schoolName, v);
+    }
     expect(
       await getResponse(url + 'search', {
-        schoolName: '선린인터넷고등학교',
+        schoolName: '서울',
       })
-    ).toEqual([{ schoolName: '선린인터넷고등학교', schoolCode: '7010536', region: '서울특별시교육청', regionCode: 'B10' }]);
+    ).toEqual(data);
   });
   it('meal (only on cache)', async () => {
     const data: Cache[] = JSON.parse(await Bun.file('./tests/meal_data.json').text());
