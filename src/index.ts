@@ -1,7 +1,7 @@
 import Elysia, { redirect } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { staticPlugin } from '@elysiajs/static';
-import { logger } from '@tqman/nice-logger';
+import logixlysia from 'logixlysia';
 import { rateLimit } from 'elysia-rate-limit';
 import fs from 'node:fs/promises';
 import path from 'path';
@@ -10,7 +10,8 @@ import comcigan from './routes/comcigan';
 import neis from './routes/neis';
 import notifications from './routes/notifications';
 import fcm from './routes/fcm';
-import { refreshCache } from './libraries/cache';
+import admin from './routes/admin';
+import { refreshCache, preloadPopularSchools } from './libraries/cache';
 import { sendFcm } from './libraries/fcm';
 
 const logsDir = path.join(__dirname, '..', 'logs');
@@ -33,7 +34,18 @@ export const app = new Elysia()
       },
     })
   )
-  .use(logger({ mode: 'live', withTimestamp: true }))
+  .use(
+    logixlysia({
+      config: {
+        showStartupMessage: false,
+        timestamp: {
+          translateTime: 'yyyy-mm-dd HH:MM:ss',
+        },
+        ip: true,
+        customLogFormat: '{now} {level} {duration} {method} {pathname} {status} {message} {ip}',
+      },
+    })
+  )
   .use(staticPlugin({ assets: 'public', noCache: true }))
   .use(
     rateLimit({
@@ -49,12 +61,14 @@ export const app = new Elysia()
   )
 
   .use(refreshCache)
+  .use(preloadPopularSchools)
   .use(sendFcm)
 
   .use(comcigan)
   .use(neis)
   .use(notifications)
   .use(fcm)
+  .use(admin)
 
   .onError(({ code }) => {
     if (code === 'NOT_FOUND') return redirect(susVideo());

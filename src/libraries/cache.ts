@@ -53,6 +53,12 @@ export interface Cache extends Meal {
   school_code: string;
 }
 
+// 자주 요청되는 학교들 저장용 컬렉션
+const popularSchoolsCollection = db.openDB({ name: 'popularSchools' });
+
+// 학교별 요청 횟수 저장용 컬렉션
+const schoolRequestStatsCollection = db.openDB({ name: 'schoolRequestStats' });
+
 export const refreshCache = cron({
   name: 'refresh',
   pattern: Patterns.EVERY_DAY_AT_1AM,
@@ -60,6 +66,47 @@ export const refreshCache = cron({
     console.log('start refresh cache');
     await mealCollection.clearAsync();
     console.log('refresh cache finished');
+  },
+});
+
+// 자주 요청되는 학교들을 위한 선제적 캐싱 크론잡 (자정에 실행)
+export const preloadPopularSchools = cron({
+  name: 'preloadPopularSchools',
+  pattern: '0 0 * * *', // 매일 자정
+  async run() {
+    console.log('start preloading popular schools');
+
+    try {
+      // 자주 요청되는 학교들 목록 가져오기
+      const popularSchools = await getAllPopularSchools();
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // 오늘과 내일의 급식 정보를 미리 캐싱
+      const dates = [`${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`, `${tomorrow.getFullYear()}${String(tomorrow.getMonth() + 1).padStart(2, '0')}${String(tomorrow.getDate()).padStart(2, '0')}`];
+
+      for (const school of popularSchools) {
+        for (const date of dates) {
+          try {
+            // 이미 캐시가 있는지 확인
+            const cacheKey = `${school.regionCode}_${school.schoolCode}_${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+            if (!mealCollection.doesExist(cacheKey)) {
+              console.log(`Preloading meal data for school ${school.schoolCode} on ${date}`);
+              await getMeal(school.schoolCode, school.regionCode, date);
+              // API 과부하 방지를 위한 지연
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          } catch (error) {
+            console.error(`Failed to preload meal for school ${school.schoolCode} on ${date}:`, error);
+          }
+        }
+      }
+
+      console.log(`Preloading completed for ${popularSchools.length} popular schools`);
+    } catch (error) {
+      console.error('Error during preloading popular schools:', error);
+    }
   },
 });
 
@@ -74,8 +121,87 @@ export const refreshSchoolCache = cron({
   },
 });
 
+// 학교별 요청 횟수 증가
+export async function incrementSchoolRequestCount(schoolCode: string, regionCode: string): Promise<void> {
+  const key = `${regionCode}_${schoolCode}`;
+  const currentCount = schoolRequestStatsCollection.get(key) || 0;
+  await schoolRequestStatsCollection.put(key, currentCount + 1);
+}
+
+// 자주 요청되는 학교 목록 조회 (요청 횟수 기준 상위 30개)
+export async function getPopularSchools(): Promise<Array<{ schoolCode: string; regionCode: string; requestCount: number }>> {
+  const allStats: Array<{ schoolCode: string; regionCode: string; requestCount: number }> = [];
+
+  for (const key of schoolRequestStatsCollection.getKeys()) {
+    const keyStr = key.toString();
+    const [regionCode, schoolCode] = keyStr.split('_');
+    const requestCount = schoolRequestStatsCollection.get(keyStr) || 0;
+
+    if (requestCount >= 5) {
+      // 최소 5회 이상 요청된 학교만 포함
+      allStats.push({ schoolCode, regionCode, requestCount });
+    }
+  }
+
+  // 요청 횟수 기준으로 내림차순 정렬하고 상위 30개만 반환
+  return allStats.sort((a, b) => b.requestCount - a.requestCount).slice(0, 30);
+}
+
+// FCM 등록된 학교들도 인기 학교로 간주
+export async function getPopularSchoolsFromFCM(): Promise<Array<{ schoolCode: string; regionCode: string }>> {
+  const fcmCollection = db.openDB({ name: 'fcm' });
+  const fcmSchools = new Set<string>();
+
+  for (const key of fcmCollection.getKeys()) {
+    const fcmData = fcmCollection.get(key.toString());
+    if (fcmData && fcmData.schoolCode && fcmData.regionCode) {
+      fcmSchools.add(`${fcmData.regionCode}_${fcmData.schoolCode}`);
+    }
+  }
+
+  return Array.from(fcmSchools).map((key) => {
+    const [regionCode, schoolCode] = key.split('_');
+    return { schoolCode, regionCode };
+  });
+}
+
+// 통합된 인기 학교 목록 조회
+export async function getAllPopularSchools(): Promise<Array<{ schoolCode: string; regionCode: string }>> {
+  const statsBasedSchools = await getPopularSchools();
+  const fcmBasedSchools = await getPopularSchoolsFromFCM();
+
+  // 중복 제거를 위한 Set 사용
+  const allSchools = new Set<string>();
+  const result: Array<{ schoolCode: string; regionCode: string }> = [];
+
+  // 통계 기반 학교들 추가
+  for (const school of statsBasedSchools) {
+    const key = `${school.regionCode}_${school.schoolCode}`;
+    if (!allSchools.has(key)) {
+      allSchools.add(key);
+      result.push({ schoolCode: school.schoolCode, regionCode: school.regionCode });
+    }
+  }
+
+  // FCM 기반 학교들 추가
+  for (const school of fcmBasedSchools) {
+    const key = `${school.regionCode}_${school.schoolCode}`;
+    if (!allSchools.has(key)) {
+      allSchools.add(key);
+      result.push({ schoolCode: school.schoolCode, regionCode: school.regionCode });
+    }
+  }
+
+  return result;
+}
+
 export async function getMeal(school_code: string, region_code: string, mlsv_ymd: string, showAllergy: boolean = false, showOrigin: boolean = false, showNutrition: boolean = false): Promise<Meal[]> {
   try {
+    // 요청 통계 기록 (백그라운드에서 비동기로 실행)
+    incrementSchoolRequestCount(school_code, region_code).catch((err) => {
+      console.error('Failed to increment school request count:', err);
+    });
+
     const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
     const cachedMeal: Cache | undefined | null = mealCollection.get(`${region_code}_${school_code}_${db_date}`);
     const unwrap = (x: string | null | undefined) => {
