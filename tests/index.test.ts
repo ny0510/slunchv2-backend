@@ -1,7 +1,7 @@
 import { expect, describe, it } from 'bun:test';
-import { app } from './index';
-import { db } from './libraries/db';
-import { Cache, SchoolSearchResult } from './libraries/cache';
+import { app } from '../src/index';
+import { db } from '../src/libraries/db';
+import { Cache, SchoolSearchResult } from '../src/libraries/cache';
 
 const default_url = 'http://localhost:3000';
 
@@ -51,7 +51,7 @@ describe('neis', () => {
     const collection = db.openDB({ name: 'school', dupSort: true });
     const informationCollection = db.openDB({ name: 'schoolInformation' });
     for (const v of data) {
-      await collection.put("서울", v.schoolName);
+      await collection.put('서울', v.schoolName);
       await informationCollection.put(v.schoolName, v);
     }
     expect(
