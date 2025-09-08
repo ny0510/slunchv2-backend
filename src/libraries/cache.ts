@@ -202,40 +202,99 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
       console.error('Failed to increment school request count:', err);
     });
 
-    const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
-    const cachedMeal: Cache | undefined | null = mealCollection.get(`${region_code}_${school_code}_${db_date}`);
     const unwrap = (x: string | null | undefined) => {
       return x ?? '';
     };
-    if (cachedMeal != null && cachedMeal != undefined) {
-      let v = cachedMeal;
-      return [
-        {
-          date: v.date,
-          meal: showAllergy
-            ? v.meal.map((v) => {
-                return {
-                  food: v.food,
-                  allergy: v.allergy.map((val) => {
-                    return { type: val.type, code: val.code };
-                  }),
-                };
-              })
-            : v.meal.map((v) => v.food),
-          type: unwrap(v.type),
-          origin: showOrigin
-            ? v.origin.map((val) => {
-                return { food: val.food, origin: val.origin };
-              })
-            : undefined,
-          calorie: unwrap(v.calorie),
-          nutrition: showNutrition
-            ? v.nutrition.map((val) => {
-                return { type: val.type, amount: val.amount };
-              })
-            : undefined,
-        },
-      ];
+
+    if (mlsv_ymd.length === 6) {
+      // YYYYMM 형태인 경우 - 해당 월의 모든 캐시된 급식 데이터 검색
+      const year = mlsv_ymd.slice(0, 4);
+      const month = mlsv_ymd.slice(4, 6);
+      const yearMonth = `${year}-${month}`;
+
+      console.log(`월별 캐시 검색: ${region_code}_${school_code}_${yearMonth}-*`);
+
+      const monthlyMeals: Meal[] = [];
+
+      // 캐시에서 해당 월의 모든 급식 데이터 찾기
+      for (const key of mealCollection.getKeys()) {
+        const keyStr = key.toString();
+        if (keyStr.startsWith(`${region_code}_${school_code}_${yearMonth}-`)) {
+          const cachedMeal: Cache | undefined | null = mealCollection.get(keyStr);
+          if (cachedMeal != null && cachedMeal != undefined) {
+            console.log(`월별 캐시 히트: ${keyStr}`);
+            let v = cachedMeal;
+            monthlyMeals.push({
+              date: v.date,
+              meal: showAllergy
+                ? v.meal.map((v) => {
+                    return {
+                      food: v.food,
+                      allergy: v.allergy.map((val) => {
+                        return { type: val.type, code: val.code };
+                      }),
+                    };
+                  })
+                : v.meal.map((v) => v.food),
+              type: unwrap(v.type),
+              origin: showOrigin
+                ? v.origin.map((val) => {
+                    return { food: val.food, origin: val.origin };
+                  })
+                : undefined,
+              calorie: unwrap(v.calorie),
+              nutrition: showNutrition
+                ? v.nutrition.map((val) => {
+                    return { type: val.type, amount: val.amount };
+                  })
+                : undefined,
+            });
+          }
+        }
+      }
+
+      if (monthlyMeals.length > 0) {
+        console.log(`월별 캐시 데이터 ${monthlyMeals.length}개 반환`);
+        return monthlyMeals.sort((a, b) => a.date.localeCompare(b.date));
+      }
+    } else {
+      // YYYYMMDD 형태인 경우 - 특정 날짜 검색
+      const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
+      const cacheKey = `${region_code}_${school_code}_${db_date}`;
+      console.log(`일별 캐시 검색: ${cacheKey}`);
+      const cachedMeal: Cache | undefined | null = mealCollection.get(cacheKey);
+
+      if (cachedMeal != null && cachedMeal != undefined) {
+        console.log(`일별 캐시 히트: ${cacheKey}`);
+        let v = cachedMeal;
+        return [
+          {
+            date: v.date,
+            meal: showAllergy
+              ? v.meal.map((v) => {
+                  return {
+                    food: v.food,
+                    allergy: v.allergy.map((val) => {
+                      return { type: val.type, code: val.code };
+                    }),
+                  };
+                })
+              : v.meal.map((v) => v.food),
+            type: unwrap(v.type),
+            origin: showOrigin
+              ? v.origin.map((val) => {
+                  return { food: val.food, origin: val.origin };
+                })
+              : undefined,
+            calorie: unwrap(v.calorie),
+            nutrition: showNutrition
+              ? v.nutrition.map((val) => {
+                  return { type: val.type, amount: val.amount };
+                })
+              : undefined,
+          },
+        ];
+      }
     }
 
     const fetchedMeals = await neis.getMeal({
@@ -307,55 +366,111 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
     if (message.includes('Request timed out') || message.includes('timeout') || message.includes('ECONNRESET') || message.includes('network')) {
       console.log(`나이스 API 오류 발생 (${message}), 캐시된 데이터 검색 중...`);
 
-      // 요청된 날짜의 캐시가 없다면 최근 7일간의 캐시를 찾아봄
-      const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
+      if (mlsv_ymd.length === 6) {
+        // YYYYMM 형태인 경우 - 해당 월의 모든 캐시된 급식 데이터 검색
+        const year = mlsv_ymd.slice(0, 4);
+        const month = mlsv_ymd.slice(4, 6);
+        const yearMonth = `${year}-${month}`;
 
-      // 최근 7일간의 날짜 목록 생성
-      const dates = [];
-      const targetDate = new Date(db_date);
-      for (let i = 0; i < 7; i++) {
-        const checkDate = new Date(targetDate);
-        checkDate.setDate(checkDate.getDate() - i);
-        const formattedDate = checkDate.toISOString().split('T')[0];
-        dates.push(formattedDate);
-      }
+        console.log(`월별 급식 캐시 검색: ${region_code}_${school_code}_${yearMonth}-*`);
 
-      // 캐시된 데이터 검색
-      for (const date of dates) {
-        const cachedMeal: Cache | undefined | null = mealCollection.get(`${region_code}_${school_code}_${date}`);
-        if (cachedMeal != null && cachedMeal != undefined) {
-          console.log(`캐시된 데이터 발견: ${date} (원래 요청: ${db_date})`);
-          let v = cachedMeal;
-          return [
-            {
-              date: v.date,
-              meal: showAllergy
-                ? v.meal.map((v) => {
-                    return {
-                      food: v.food,
-                      allergy: v.allergy.map((val) => {
-                        return { type: val.type, code: val.code };
-                      }),
-                    };
-                  })
-                : v.meal.map((v) => v.food),
-              type: (v.type ?? '') + ' (캐시됨)',
-              origin: showOrigin
-                ? v.origin.map((val) => {
-                    return { food: val.food, origin: val.origin };
-                  })
-                : undefined,
-              calorie: v.calorie ?? '',
-              nutrition: showNutrition
-                ? v.nutrition.map((val) => {
-                    return { type: val.type, amount: val.amount };
-                  })
-                : undefined,
-            },
-          ];
+        const monthlyMeals: Meal[] = [];
+
+        // 캐시에서 해당 월의 모든 급식 데이터 찾기
+        for (const key of mealCollection.getKeys()) {
+          const keyStr = key.toString();
+          if (keyStr.startsWith(`${region_code}_${school_code}_${yearMonth}-`)) {
+            const cachedMeal: Cache | undefined | null = mealCollection.get(keyStr);
+            if (cachedMeal != null && cachedMeal != undefined) {
+              console.log(`월별 캐시 데이터 발견: ${keyStr}`);
+              let v = cachedMeal;
+              monthlyMeals.push({
+                date: v.date,
+                meal: showAllergy
+                  ? v.meal.map((v) => {
+                      return {
+                        food: v.food,
+                        allergy: v.allergy.map((val) => {
+                          return { type: val.type, code: val.code };
+                        }),
+                      };
+                    })
+                  : v.meal.map((v) => v.food),
+                type: (v.type ?? '') + ' (캐시됨)',
+                origin: showOrigin
+                  ? v.origin.map((val) => {
+                      return { food: val.food, origin: val.origin };
+                    })
+                  : undefined,
+                calorie: v.calorie ?? '',
+                nutrition: showNutrition
+                  ? v.nutrition.map((val) => {
+                      return { type: val.type, amount: val.amount };
+                    })
+                  : undefined,
+              });
+            }
+          }
+        }
+
+        if (monthlyMeals.length > 0) {
+          console.log(`월별 캐시 데이터 ${monthlyMeals.length}개 반환`);
+          return monthlyMeals.sort((a, b) => a.date.localeCompare(b.date));
+        }
+      } else {
+        // YYYYMMDD 형태인 경우 - 특정 날짜 및 주변 날짜 검색
+        const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
+
+        // 최근 7일간의 날짜 목록 생성
+        const dates = [];
+        const targetDate = new Date(db_date);
+        for (let i = 0; i < 7; i++) {
+          const checkDate = new Date(targetDate);
+          checkDate.setDate(checkDate.getDate() - i);
+          const formattedDate = checkDate.toISOString().split('T')[0];
+          dates.push(formattedDate);
+        }
+
+        console.log(`일별 급식 캐시 검색: region_code=${region_code}, school_code=${school_code}, db_date=${db_date}`);
+        console.log(`검색할 날짜들:`, dates);
+
+        for (const date of dates) {
+          const searchKey = `${region_code}_${school_code}_${date}`;
+          console.log(`캐시 키 검색: ${searchKey}`);
+          const cachedMeal: Cache | undefined | null = mealCollection.get(searchKey);
+          if (cachedMeal != null && cachedMeal != undefined) {
+            console.log(`캐시된 데이터 발견: ${date} (원래 요청: ${db_date})`);
+            let v = cachedMeal;
+            return [
+              {
+                date: v.date,
+                meal: showAllergy
+                  ? v.meal.map((v) => {
+                      return {
+                        food: v.food,
+                        allergy: v.allergy.map((val) => {
+                          return { type: val.type, code: val.code };
+                        }),
+                      };
+                    })
+                  : v.meal.map((v) => v.food),
+                type: (v.type ?? '') + ' (캐시됨)',
+                origin: showOrigin
+                  ? v.origin.map((val) => {
+                      return { food: val.food, origin: val.origin };
+                    })
+                  : undefined,
+                calorie: v.calorie ?? '',
+                nutrition: showNutrition
+                  ? v.nutrition.map((val) => {
+                      return { type: val.type, amount: val.amount };
+                    })
+                  : undefined,
+              },
+            ];
+          }
         }
       }
-
       console.log('캐시된 데이터를 찾을 수 없음');
     }
 
