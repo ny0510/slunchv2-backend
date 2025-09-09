@@ -20,7 +20,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     },
     {
       query: t.Object({
-        schoolName: t.String({ description: '학교 이름' }),
+        schoolName: t.String({ description: '학교 이름', error: { message: '학교 이름은 문자열이어야 해요.' } }),
       }),
       detail: { summary: '학교 검색' },
       response: {
@@ -30,11 +30,11 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
             schoolCode: t.Number({ description: '학교 코드', default: 41896 }),
             region: t.String({ description: '지역', default: '서울' }),
           }),
-          { description: '검색된 학교 목록' }
+          { description: '검색된 학교 목록' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
-    }
+    },
   )
   .get(
     '/timetable',
@@ -56,10 +56,10 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     },
     {
       query: t.Object({
-        schoolCode: t.Number({ description: '학교 코드' }),
-        grade: t.Number({ description: '학년' }),
-        class: t.Number({ description: '반' }),
-        weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined })),
+        schoolCode: t.Number({ description: '학교 코드', error: { message: '학교 코드는 숫자여야 해요.' } }),
+        grade: t.Number({ description: '학년', error: { message: '학년은 숫자여야 해요.' } }),
+        class: t.Number({ description: '반', error: { message: '반은 숫자여야 해요.' } }),
+        weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined, error: { message: '요일은 1부터 5까지의 숫자여야 해요.' } })),
       }),
       detail: { summary: '시간표 조회' },
       response: {
@@ -73,7 +73,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                     teacher: t.String({ description: '교사', default: '홍길*' }),
                     changed: t.Literal(false),
                   },
-                  { description: '변경되지 않은 시간표' }
+                  { description: '변경되지 않은 시간표' },
                 ),
                 t.Object(
                   {
@@ -85,10 +85,10 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                   },
                   {
                     description: '변경된 시간표',
-                  }
+                  },
                 ),
               ]),
-              { description: '하루 시간표' }
+              { description: '하루 시간표' },
             ),
             t.Array(
               t.Array(
@@ -99,7 +99,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                       teacher: t.String({ description: '교사', default: '홍길*' }),
                       changed: t.Literal(false),
                     },
-                    { description: '변경되지 않은 시간표' }
+                    { description: '변경되지 않은 시간표' },
                   ),
                   t.Object(
                     {
@@ -109,19 +109,19 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                       originalSubject: t.String({ description: '변경 전 과목', default: '수학' }),
                       originalTeacher: t.String({ description: '변경 전 교사', default: '길홍*' }),
                     },
-                    { description: '변경된 시간표' }
+                    { description: '변경된 시간표' },
                   ),
-                ])
+                ]),
               ),
-              { description: '일주일 시간표' }
+              { description: '일주일 시간표' },
             ),
           ],
-          { description: '시간표' }
+          { description: '시간표' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
-    }
+    },
   )
   .get(
     '/classList',
@@ -145,7 +145,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     },
     {
       query: t.Object({
-        schoolCode: t.Number({ description: '학교 코드' }),
+        schoolCode: t.Number({ description: '학교 코드', error: { message: '학교 코드는 숫자여야 해요.' } }),
       }),
       detail: { summary: '반 목록 조회' },
       response: {
@@ -154,13 +154,13 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
             grade: t.Number({ description: '학년', default: 1 }),
             classes: t.Array(t.Number({ description: '반', default: 1 }), { description: '반 목록' }),
           }),
-          { description: '반 목록' }
+          { description: '반 목록' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
         500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
-    }
+    },
   );
 
 export default app;
