@@ -302,63 +302,6 @@ export async function getMeal(school_code: string, region_code: string, mlsv_ymd
   } catch (e) {
     const err = e as Error;
     const message = err.message.replace(/INFO-\d+\s*/g, '');
-
-    // 타임아웃이나 서버 오류인 경우 캐시된 데이터를 찾아서 반환
-    if (message.includes('Request timed out') || message.includes('timeout') || message.includes('ECONNRESET') || message.includes('network')) {
-      console.log(`나이스 API 오류 발생 (${message}), 캐시된 데이터 검색 중...`);
-
-      // 요청된 날짜의 캐시가 없다면 최근 7일간의 캐시를 찾아봄
-      const db_date = mlsv_ymd.slice(0, 4) + '-' + mlsv_ymd.slice(4, 6) + '-' + mlsv_ymd.slice(6, 8);
-
-      // 최근 7일간의 날짜 목록 생성
-      const dates = [];
-      const targetDate = new Date(db_date);
-      for (let i = 0; i < 7; i++) {
-        const checkDate = new Date(targetDate);
-        checkDate.setDate(checkDate.getDate() - i);
-        const formattedDate = checkDate.toISOString().split('T')[0];
-        dates.push(formattedDate);
-      }
-
-      // 캐시된 데이터 검색
-      for (const date of dates) {
-        const cachedMeal: Cache | undefined | null = mealCollection.get(`${region_code}_${school_code}_${date}`);
-        if (cachedMeal != null && cachedMeal != undefined) {
-          console.log(`캐시된 데이터 발견: ${date} (원래 요청: ${db_date})`);
-          let v = cachedMeal;
-          return [
-            {
-              date: v.date,
-              meal: showAllergy
-                ? v.meal.map((v) => {
-                    return {
-                      food: v.food,
-                      allergy: v.allergy.map((val) => {
-                        return { type: val.type, code: val.code };
-                      }),
-                    };
-                  })
-                : v.meal.map((v) => v.food),
-              type: (v.type ?? '') + ' (캐시됨)',
-              origin: showOrigin
-                ? v.origin.map((val) => {
-                    return { food: val.food, origin: val.origin };
-                  })
-                : undefined,
-              calorie: v.calorie ?? '',
-              nutrition: showNutrition
-                ? v.nutrition.map((val) => {
-                    return { type: val.type, amount: val.amount };
-                  })
-                : undefined,
-            },
-          ];
-        }
-      }
-
-      console.log('캐시된 데이터를 찾을 수 없음');
-    }
-
     if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
     else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
   }
