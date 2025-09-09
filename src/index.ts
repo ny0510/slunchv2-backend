@@ -1,9 +1,9 @@
 import Elysia, { redirect } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { staticPlugin } from '@elysiajs/static';
-import { logger } from '@tqman/nice-logger';
 import { rateLimit } from 'elysia-rate-limit';
 import fs from 'node:fs/promises';
+import logixlysia from 'logixlysia';
 import path from 'path';
 
 import comcigan from './routes/comcigan';
@@ -33,7 +33,18 @@ export const app = new Elysia()
       },
     })
   )
-  .use(logger({ mode: 'live', withTimestamp: true }))
+  .use(
+    logixlysia({
+      config: {
+        showStartupMessage: false,
+        timestamp: {
+          translateTime: 'yyyy-mm-dd HH:MM:ss',
+        },
+        ip: true,
+        customLogFormat: '{now} {level} {duration} {method} {pathname} {status} {message} {ip}',
+      },
+    })
+  )
   .use(staticPlugin({ assets: 'public', noCache: true }))
   .use(
     rateLimit({
