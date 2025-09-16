@@ -1,16 +1,13 @@
 import { randomUUIDv7 as randomUUID } from 'bun';
 
-import { Elysia, error, t } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { db } from '../libraries/db';
+import { ERROR_MESSAGES, DB_COLLECTIONS } from '../constants';
+import { validateRequired } from '../utils/validation';
+import { throwUnauthorized } from '../utils/errors';
+import type { Notification } from '../types';
 
-interface Notification {
-  id: string;
-  title: string;
-  content: string;
-  date: string;
-}
-
-const collection = db.openDB({ name: 'notifications', cache: true });
+const collection = db.openDB({ name: DB_COLLECTIONS.NOTIFICATIONS, cache: true });
 const password = process.env.ADMIN_KEY;
 if (password === undefined) {
   throw new Error('ADMIN_KEY is not defined');
@@ -35,31 +32,32 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
             content: t.String({ description: '공지 내용', default: '내용' }),
             date: t.String({ description: '공지 날짜', default: '2025-03-08T05:52:06.583Z' }),
           }),
-          { description: '공지 목록' },
+          { description: '공지 목록' }
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
       detail: { summary: '공지 목록' },
-    },
+    }
   )
   .post(
     '/',
     async ({ headers, body }) => {
       const { token } = headers;
       const { title, content, date } = body;
-      if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
-      if (!title) throw error(400, { message: '제목을 입력해주세요.' });
-      if (!content) throw error(400, { message: '내용을 입력해주세요.' });
-      if (!date) throw error(400, { message: '날짜를 입력해주세요.' });
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+      validateRequired(title, ERROR_MESSAGES.TITLE_REQUIRED);
+      validateRequired(content, ERROR_MESSAGES.CONTENT_REQUIRED);
+      validateRequired(date, ERROR_MESSAGES.DATE_REQUIRED);
 
-      if (!(await Bun.password.verify(token, hash))) {
-        throw error(403, { message: '권한이 없습니다.' });
+      if (!(await Bun.password.verify(token!, hash))) {
+        throwUnauthorized();
       }
 
       const id = randomUUID();
-      await collection.put(id, { id, title, content, date });
+      const notification: Notification = { id, title: title!, content: content!, date: date! };
+      await collection.put(id, notification);
 
-      return { id, title, content, date };
+      return notification;
     },
     {
       headers: t.Object({
@@ -88,14 +86,14 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
     '/',
     async ({ headers }) => {
       const { token } = headers;
-      if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
 
-      if (!(await Bun.password.verify(token, hash))) {
-        throw error(403, { message: '권한이 없습니다.' });
+      if (!(await Bun.password.verify(token!, hash))) {
+        throwUnauthorized();
       }
 
       await collection.clearAsync();
-      return { message: '모든 공지가 삭제되었습니다.' };
+      return { message: ERROR_MESSAGES.ALL_NOTIFICATIONS_DELETED };
     },
     {
       headers: t.Object({
@@ -114,15 +112,15 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
     async ({ headers, params }) => {
       const { token } = headers;
       const { id } = params;
-      if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
-      if (!id) throw error(400, { message: 'ID를 입력해주세요.' });
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+      validateRequired(id, ERROR_MESSAGES.ID_REQUIRED);
 
-      if (!(await Bun.password.verify(token, hash))) {
-        throw error(403, { message: '권한이 없습니다.' });
+      if (!(await Bun.password.verify(token!, hash))) {
+        throwUnauthorized();
       }
 
-      await collection.remove(id);
-      return { message: `공지 ${id}가 삭제되었습니다.` };
+      await collection.remove(id!);
+      return { message: ERROR_MESSAGES.NOTIFICATION_DELETED(id!) };
     },
     {
       headers: t.Object({
@@ -145,18 +143,19 @@ const app = new Elysia({ prefix: '/notifications', tags: ['공지'] })
       const { token } = headers;
       const { id } = params;
       const { title, content, date } = body;
-      if (!token) throw error(400, { message: '토큰을 입력해주세요.' });
-      if (!id) throw error(400, { message: 'ID를 입력해주세요.' });
-      if (!title) throw error(400, { message: '제목을 입력해주세요.' });
-      if (!content) throw error(400, { message: '내용을 입력해주세요.' });
-      if (!date) throw error(400, { message: '날짜를 입력해주세요.' });
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+      validateRequired(id, ERROR_MESSAGES.ID_REQUIRED);
+      validateRequired(title, ERROR_MESSAGES.TITLE_REQUIRED);
+      validateRequired(content, ERROR_MESSAGES.CONTENT_REQUIRED);
+      validateRequired(date, ERROR_MESSAGES.DATE_REQUIRED);
 
-      if (!(await Bun.password.verify(token, hash))) {
-        throw error(403, { message: '권한이 없습니다.' });
+      if (!(await Bun.password.verify(token!, hash))) {
+        throwUnauthorized();
       }
 
-      await collection.put(id, { id, title, content, date });
-      return { id, title, content, date };
+      const notification: Notification = { id: id!, title: title!, content: content!, date: date! };
+      await collection.put(id!, notification);
+      return notification;
     },
     {
       headers: t.Object({

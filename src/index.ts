@@ -12,14 +12,34 @@ import notifications from './routes/notifications';
 import fcm from './routes/fcm';
 import { refreshCache } from './libraries/cache';
 import { sendFcm } from './libraries/fcm';
+import { precachePopularSchools } from './services/meal-precache';
+import { cleanupOldAccessRecords } from './services/access-tracker';
+import cron from '@elysiajs/cron';
 
 const logsDir = path.join(__dirname, '..', 'logs');
 fs.access(logsDir).catch(() => fs.mkdir(logsDir));
 
+import { SUS_VIDEOS, API_CONFIG } from './constants';
+
 const susVideo = (): string => {
-  const videos = ['FlUKCD2G0N0', 'jjDL_zySJv4', 'a8uyilHatBA'];
-  return `https://youtu.be/${videos[Math.floor(Math.random() * videos.length)]}`;
+  return `https://youtu.be/${SUS_VIDEOS[Math.floor(Math.random() * SUS_VIDEOS.length)]}`;
 };
+
+const mealPrecache = cron({
+  name: 'mealPrecache',
+  pattern: '0 5 * * *', // 매일 새벽 5시
+  async run() {
+    await precachePopularSchools();
+  },
+});
+
+const cleanupAccessRecords = cron({
+  name: 'cleanupAccessRecords',
+  pattern: '0 3 * * 0', // 매주 일요일 새벽 3시
+  async run() {
+    cleanupOldAccessRecords();
+  },
+});
 
 export const app = new Elysia()
   .use(
@@ -34,6 +54,7 @@ export const app = new Elysia()
     })
   )
   .use(
+    // @ts-ignore
     logixlysia({
       config: {
         showStartupMessage: false,
@@ -53,14 +74,15 @@ export const app = new Elysia()
         statusText: 'Rate Limit Exceeded',
         headers: { 'Content-Type': 'text/plain' },
       }),
-      max: 100,
-      duration: 60 * 1000,
-      // 100 requests per 1 minute
+      max: API_CONFIG.RATE_LIMIT.MAX_REQUESTS,
+      duration: API_CONFIG.RATE_LIMIT.DURATION_MS,
     })
   )
 
   .use(refreshCache)
   .use(sendFcm)
+  .use(mealPrecache)
+  .use(cleanupAccessRecords)
 
   .use(comcigan)
   .use(neis)
@@ -70,9 +92,11 @@ export const app = new Elysia()
   .onError(({ code }) => {
     if (code === 'NOT_FOUND') return redirect(susVideo());
   })
-  .listen(process.env.PORT ?? 3000);
+  .listen(process.env.PORT ?? API_CONFIG.DEFAULT_PORT);
 
 console.log(`
 🍤 Slunch-V2 backend is running at ${app.server!.url}
 📄 Swagger documentation is available at ${app.server!.url}swagger
 `);
+
+await precachePopularSchools();

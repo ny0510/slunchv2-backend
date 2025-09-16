@@ -1,12 +1,15 @@
-import { Elysia, error, t } from 'elysia';
-import { getMeal, neis, search } from '../libraries/cache';
+import { Elysia, t } from 'elysia';
+import { getMeal, search, neis } from '../libraries/cache';
+import { ERROR_MESSAGES } from '../constants';
+import { validateRequired, validateSchoolParams, validateDateParams, formatDateForApi, formatDate } from '../utils/validation';
+import { handleNeisError } from '../utils/errors';
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
     '/search',
     async ({ query }) => {
       const { schoolName } = query;
-      if (!schoolName) throw error(400, { message: '학교 이름을 입력해주세요.' });
+      validateRequired(schoolName, ERROR_MESSAGES.SCHOOL_NAME_REQUIRED);
 
       return await search(schoolName);
     },
@@ -34,11 +37,11 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
     '/meal',
     async ({ query }) => {
       const { schoolCode, regionCode, year, month, day, showAllergy, showOrigin, showNutrition } = query;
-      if (!schoolCode) throw error(400, { message: '학교 코드를 입력해주세요.' });
-      if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });
-      if (!year) throw error(400, { message: '년도를 입력해주세요.' });
-      if (!month) throw error(400, { message: '월을 입력해주세요.' });
-      return getMeal(schoolCode, regionCode, `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`, showAllergy, showOrigin, showNutrition);
+      validateSchoolParams(schoolCode, regionCode);
+      validateDateParams(year, month);
+
+      const dateFormatted = formatDateForApi(year!, month!, day);
+      return getMeal(schoolCode!, regionCode!, dateFormatted, showAllergy, showOrigin, showNutrition);
     },
     {
       query: t.Object({
@@ -105,24 +108,23 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
     '/schedule',
     async ({ query }) => {
       const { schoolCode, regionCode, year, month, day } = query;
-      if (!schoolCode) throw error(400, { message: '학교 코드를 입력해주세요.' });
-      if (!regionCode) throw error(400, { message: '지역 코드를 입력해주세요.' });
-      if (!year) throw error(400, { message: '년도를 입력해주세요.' });
-      if (!month) throw error(400, { message: '월을 입력해주세요.' });
+      validateSchoolParams(schoolCode, regionCode);
+      validateDateParams(year, month);
 
       try {
+        const dateFormatted = formatDateForApi(year!, month!, day);
         const fetchedSchedules = await neis.getSchedule({
-          SD_SCHUL_CODE: schoolCode,
-          ATPT_OFCDC_SC_CODE: regionCode,
-          AA_YMD: `${year}${month.padStart(2, '0')}${day ? day.padStart(2, '0') : ''}`,
+          SD_SCHUL_CODE: schoolCode!,
+          ATPT_OFCDC_SC_CODE: regionCode!,
+          AA_YMD: dateFormatted,
         });
 
         const schedulesMap: { [key: string]: { start: string; end: string; schedules: string[] } } = {};
 
-        fetchedSchedules.forEach((s) => {
+        fetchedSchedules.forEach((s: any) => {
           if (s.EVENT_NM === '토요휴업일') return;
 
-          const formattedDate = `${s.AA_YMD.slice(0, 4)}-${s.AA_YMD.slice(4, 6)}-${s.AA_YMD.slice(6, 8)}`;
+          const formattedDate = formatDate(s.AA_YMD);
 
           if (!schedulesMap[formattedDate]) {
             schedulesMap[formattedDate] = { start: formattedDate, end: formattedDate, schedules: [s.EVENT_NM] };
@@ -152,11 +154,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 
         return combinedSchedules;
       } catch (e) {
-        const err = e as Error;
-        const message = err.message.replace(/INFO-\d+\s*/g, '');
-
-        if (message === '해당하는 데이터가 없습니다.') throw error(404, { message });
-        else throw error(400, { message: err.message.replace(/INFO-\d+\s*/g, '') });
+        handleNeisError(e as Error);
       }
     },
     {
