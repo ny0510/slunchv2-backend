@@ -1,5 +1,8 @@
-import { Elysia, error, t } from 'elysia';
+import { Elysia, t } from 'elysia';
 import Comcigan, { School, Weekday } from 'comcigan.ts';
+import { ERROR_MESSAGES } from '../constants';
+import { validateRequired } from '../utils/validation';
+import { handleComciganError } from '../utils/errors';
 
 const comcigan = new Comcigan();
 
@@ -7,8 +10,8 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
   .get(
     '/search',
     async ({ query }) => {
-      if (!query.schoolName) throw error(400, { message: '학교 이름을 입력해주세요.' });
-      const searchedSchools: School[] = await comcigan.searchSchools(query.schoolName);
+      validateRequired(query.schoolName, ERROR_MESSAGES.SCHOOL_NAME_REQUIRED);
+      const searchedSchools: School[] = await comcigan.searchSchools(query.schoolName!);
 
       return searchedSchools
         .filter((school) => school.code !== 0) // 없으면 추가 검색하세요 제외
@@ -40,18 +43,14 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     '/timetable',
     async ({ query }) => {
       const { schoolCode, grade, class: classNum, weekday } = query;
-      if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
-      if (!grade) throw error(400, '학년을 입력해주세요.');
-      if (!classNum) throw error(400, '반을 입력해주세요.');
+      validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+      validateRequired(grade, ERROR_MESSAGES.GRADE_REQUIRED);
+      validateRequired(classNum, ERROR_MESSAGES.CLASS_REQUIRED);
 
       try {
         return weekday ? await comcigan.getTimetable(schoolCode, grade, classNum, weekday as never as Weekday) : await comcigan.getTimetable(schoolCode, grade, classNum);
       } catch (e) {
-        const err = e as Error;
-
-        if (err.message === "undefined is not an object (evaluating 'teachers.length')") throw error(404, { message: '학교를 찾을 수 없어요.' });
-        else if (err.message === "undefined is not an object (evaluating 'raw[grade - 1][cls - 1][day - 1]')") throw error(404, { message: '시간표를 찾을 수 없어요.' });
-        else throw error(500, { message: '알 수 없는 오류가 발생했어요.' });
+        handleComciganError(e as Error);
       }
     },
     {
@@ -127,7 +126,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     '/classList',
     async ({ query }) => {
       const { schoolCode } = query;
-      if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
+      validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
 
       try {
         const timetable = await comcigan.getTimetable(schoolCode);
@@ -137,10 +136,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
           classes: grade.map((_, classIndex) => classIndex + 1),
         }));
       } catch (e) {
-        const err = e as Error;
-
-        if (err.message === "undefined is not an object (evaluating 'teachers.length')") throw error(404, { message: '학교를 찾을 수 없어요.' });
-        else throw error(500, { message: '알 수 없는 오류가 발생했어요.' });
+        handleComciganError(e as Error);
       }
     },
     {

@@ -3,31 +3,41 @@ import { db } from './db';
 import admin from 'firebase-admin';
 import { getMeal } from './cache';
 import { appendFile } from 'node:fs/promises';
+import { DB_COLLECTIONS } from '../constants';
+import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/validation';
+import type { FcmSubscription, MealItem } from '../types';
 
 admin.initializeApp({
   credential: admin.credential.cert('serviceAccountKey.json'),
 });
 
-const collection = db.openDB({ name: 'fcm' });
+const collection = db.openDB({ name: DB_COLLECTIONS.FCM });
 
 export const sendFcm = cron({
   name: 'sendFcm',
   pattern: Patterns.EVERY_MINUTE,
   async run() {
     try {
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const currentTime = getCurrentTimeFormatted();
+      const today = getCurrentDateFormatted();
 
       for (const v of collection.getKeys()) {
-        const { token, time, schoolCode, regionCode } = collection.get(v.toString());
-        const meal = await getMeal(schoolCode, regionCode, `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`);
-        if (time === currentTime) {
-          const title = '🍴 오늘의 급식';
-          const message = meal[0].meal.join(' / ').trim();
+        const subscription = collection.get(v.toString()) as FcmSubscription;
+        const { token, time, schoolCode, regionCode } = subscription;
 
-          await sendNotification(token, title, message).then(async () => {
-            await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
-          });
+        if (time === currentTime) {
+          const meals = await getMeal(schoolCode, regionCode, today);
+          if (meals.length > 0) {
+            const title = '🍴 오늘의 급식';
+            const mealItems = meals[0].meal;
+            const message = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
+              ? (mealItems as string[]).join(' / ').trim()
+              : (mealItems as MealItem[]).map(item => item.food).join(' / ').trim();
+
+            await sendNotification(token, title, message).then(async () => {
+              await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
+            });
+          }
         }
       }
     } catch (error) {

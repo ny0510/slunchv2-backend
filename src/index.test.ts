@@ -1,7 +1,8 @@
 import { expect, describe, it } from 'bun:test';
 import { app } from './index';
 import { db } from './libraries/db';
-import { Cache, SchoolSearchResult } from './libraries/cache';
+import { DB_COLLECTIONS } from './constants';
+import type { Cache, SchoolSearchResult } from './types';
 
 const default_url = 'http://localhost:3000';
 
@@ -110,7 +111,7 @@ describe('notifications', () => {
 
 describe('fcm', async () => {
   const url = '/fcm';
-  const collection = db.openDB({ name: 'fcm' });
+  const collection = db.openDB({ name: DB_COLLECTIONS.FCM });
   await collection.put('test', { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
   it('post invalid token', async () => {
     expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00', schoolCode: '12345', regionCode: 'A1' })).toBe(422);

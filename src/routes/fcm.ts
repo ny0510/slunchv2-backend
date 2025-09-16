@@ -1,19 +1,23 @@
-import { Elysia, error, t } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { db } from '../libraries/db';
+import { ERROR_MESSAGES, DB_COLLECTIONS } from '../constants';
+import { validateRequired, validateTimeFormat } from '../utils/validation';
+import { throwNotFound, throwConflict } from '../utils/errors';
+import type { FcmSubscription } from '../types';
 
-const collection = db.openDB({ name: 'fcm' });
+const collection = db.openDB({ name: DB_COLLECTIONS.FCM });
 
 const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
   .get(
     '/',
     async ({ query }) => {
-      if (!query.token) throw error(400, { message: '토큰을 입력해주세요.' });
+      validateRequired(query.token, ERROR_MESSAGES.TOKEN_REQUIRED);
 
-      if (!collection.doesExist(query.token)) {
-        throw error(404, { message: '토큰을 찾을 수 없어요.' });
+      if (!collection.doesExist(query.token!)) {
+        throwNotFound(ERROR_MESSAGES.TOKEN_NOT_FOUND);
       }
 
-      return collection.get(query.token);
+      return collection.get(query.token!) as FcmSubscription;
     },
     {
       detail: { summary: 'fcm 토큰 정보 불러오기' },
@@ -36,21 +40,21 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
     '/',
     async ({ body }) => {
       const { token, time, schoolCode, regionCode } = body;
-      if (!token) throw error(400, '토큰을 입력해주세요.');
-      if (!time) throw error(400, '알림 시간을 입력해주세요.');
-      if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
-      if (!regionCode) throw error(400, '지역 코드를 입력해주세요.');
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+      validateRequired(time, ERROR_MESSAGES.TIME_REQUIRED);
+      validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+      validateRequired(regionCode, ERROR_MESSAGES.REGION_CODE_REQUIRED);
 
-      const [hour, minute] = time.split(':').map(Number);
+      validateTimeFormat(time!);
 
-      if (hour < 0 || hour > 23) throw error(400, '시간은 0~23 사이여야 해요.');
-      if (minute < 0 || minute > 59) throw error(400, '분은 0~59 사이여야 해요.');
+      if (collection.doesExist(token!)) {
+        throwConflict(ERROR_MESSAGES.TOKEN_ALREADY_EXISTS);
+      }
 
-      if (collection.doesExist(token)) throw error(409, '이미 존재하는 토큰이에요.');
+      const subscription: FcmSubscription = { token: token!, time: time!, schoolCode: schoolCode!, regionCode: regionCode! };
+      await collection.put(token!, subscription);
 
-      await collection.put(token, { token, time, schoolCode, regionCode });
-
-      return { token, time, schoolCode, regionCode };
+      return subscription;
     },
     {
       body: t.Object({
@@ -77,14 +81,15 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
     '/',
     async ({ body }) => {
       const { token } = body;
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
 
-      if (!token) throw error(400, '토큰을 입력해주세요.');
+      if (!collection.doesExist(token!)) {
+        throwNotFound(ERROR_MESSAGES.TOKEN_NOT_FOUND);
+      }
 
-      if (!collection.doesExist(token)) throw error(404, '토큰을 찾을 수 없어요.');
+      await collection.remove(token!);
 
-      await collection.remove(token);
-
-      return { message: '토큰이 삭제되었어요.' };
+      return { message: ERROR_MESSAGES.TOKEN_DELETED };
     },
     {
       body: t.Object({
@@ -102,21 +107,21 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
     '/',
     async ({ body }) => {
       const { token, time, schoolCode, regionCode } = body;
-      if (!token) throw error(400, '토큰을 입력해주세요.');
-      if (!time) throw error(400, '알림 시간을 입력해주세요.');
-      if (!schoolCode) throw error(400, '학교 코드를 입력해주세요.');
-      if (!regionCode) throw error(400, '지역 코드를 입력해주세요.');
+      validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+      validateRequired(time, ERROR_MESSAGES.TIME_REQUIRED);
+      validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+      validateRequired(regionCode, ERROR_MESSAGES.REGION_CODE_REQUIRED);
 
-      const [hour, minute] = time.split(':').map(Number);
+      validateTimeFormat(time!);
 
-      if (hour < 0 || hour > 23) throw error(400, '시간은 0~23 사이여야 해요.');
-      if (minute < 0 || minute > 59) throw error(400, '분은 0~59 사이여야 해요.');
+      if (!collection.doesExist(token!)) {
+        throwNotFound(ERROR_MESSAGES.TOKEN_NOT_FOUND);
+      }
 
-      if (!collection.doesExist(token)) throw error(404, '토큰을 찾을 수 없어요.');
+      const subscription: FcmSubscription = { token: token!, time: time!, schoolCode: schoolCode!, regionCode: regionCode! };
+      await collection.put(token!, subscription);
 
-      await collection.put(token, { token, time, schoolCode, regionCode });
-
-      return { token, time, schoolCode, regionCode };
+      return subscription;
     },
     {
       body: t.Object({
