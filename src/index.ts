@@ -98,5 +98,3 @@ console.log(`
 🍤 Slunch-V2 backend is running at ${app.server!.url}
 📄 Swagger documentation is available at ${app.server!.url}swagger
 `);
-
-await precachePopularSchools();
