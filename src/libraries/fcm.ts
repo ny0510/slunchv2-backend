@@ -2,16 +2,19 @@ import cron, { Patterns } from '@elysiajs/cron';
 import { db } from './db';
 import admin from 'firebase-admin';
 import { getMeal } from './cache';
+import Comcigan, { Weekday } from 'comcigan.ts';
 import { appendFile } from 'node:fs/promises';
 import { DB_COLLECTIONS } from '../constants';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/validation';
-import type { FcmSubscription, MealItem } from '../types';
+import type { MealSubscription, TimetableSubscription, MealItem, TimetableItem } from '../types';
 
 admin.initializeApp({
   credential: admin.credential.cert('serviceAccountKey.json'),
 });
 
-const collection = db.openDB({ name: DB_COLLECTIONS.FCM });
+const mealCollection = db.openDB({ name: DB_COLLECTIONS.FCM_MEAL });
+const timetableCollection = db.openDB({ name: DB_COLLECTIONS.FCM_TIMETABLE });
+const comcigan = new Comcigan();
 
 export const sendFcm = cron({
   name: 'sendFcm',
@@ -21,25 +24,12 @@ export const sendFcm = cron({
       const currentTime = getCurrentTimeFormatted();
       const today = getCurrentDateFormatted();
 
-      for (const v of collection.getKeys()) {
-        const subscription = collection.get(v.toString()) as FcmSubscription;
-        const { token, time, schoolCode, regionCode } = subscription;
+      // Send meal notifications
+      await sendMealNotifications(currentTime, today);
 
-        if (time === currentTime) {
-          const meals = await getMeal(schoolCode, regionCode, today);
-          if (meals.length > 0) {
-            const title = '🍴 오늘의 급식';
-            const mealItems = meals[0].meal;
-            const message = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
-              ? (mealItems as string[]).join(' / ').trim()
-              : (mealItems as MealItem[]).map(item => item.food).join(' / ').trim();
+      // Send timetable notifications
+      await sendTimetableNotifications(currentTime);
 
-            await sendNotification(token, title, message).then(async () => {
-              await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
-            });
-          }
-        }
-      }
     } catch (error) {
       console.error('Error sending FCM:', error);
       await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending FCM: ${JSON.stringify(error)}\n`);
@@ -47,20 +37,108 @@ export const sendFcm = cron({
   },
 });
 
-async function sendNotification(token: string, title: string, message: string) {
+async function sendMealNotifications(currentTime: string, today: string) {
+  for (const v of mealCollection.getKeys()) {
+    const subscription = mealCollection.get(v.toString()) as MealSubscription;
+    const { token, time, schoolCode, regionCode } = subscription;
+
+    if (time === currentTime) {
+      try {
+        const meals = await getMeal(schoolCode, regionCode, today);
+        if (meals.length > 0) {
+          const title = '🍴 오늘의 급식';
+          const mealItems = meals[0].meal;
+          const message = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
+            ? (mealItems as string[]).join(' / ').trim()
+            : (mealItems as MealItem[]).map(item => item.food).join(' / ').trim();
+
+          await sendNotification(token, title, message, 'meal').then(async () => {
+            await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Meal notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
+          });
+        }
+      } catch (error) {
+        console.error(`Error sending meal notification to ${token}:`, error);
+        await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending meal notification to ${token}: ${JSON.stringify(error)}\n`);
+      }
+    }
+  }
+}
+
+async function sendTimetableNotifications(currentTime: string) {
+  // Get current day of week (1=Monday, 5=Friday)
+  const dayOfWeek = new Date().getDay();
+  // Convert to weekday format (Sunday=0 to Monday=1)
+  const weekday = dayOfWeek === 0 ? null : dayOfWeek; // Skip Sunday
+
+  if (!weekday || weekday > 5) return; // Skip weekends
+
+  for (const v of timetableCollection.getKeys()) {
+    const subscription = timetableCollection.get(v.toString()) as TimetableSubscription;
+    const { token, time, schoolCode, grade, class: classNum } = subscription;
+
+    if (time === currentTime) {
+      try {
+        // Get timetable from Comcigan API
+        const timetable = await comcigan.getTimetable(
+          Number(schoolCode),
+          Number(grade),
+          Number(classNum),
+          weekday as Weekday
+        ) as TimetableItem[];
+
+        if (timetable && timetable.length > 0) {
+          const title = `📚 오늘은 ${timetable.length}교시에요`;
+          const subjects = timetable
+            .filter(item => item.subject && item.subject !== '')
+            .map(item => item.subject)
+            .join(' / ');
+
+          if (subjects) {
+            await sendNotification(token, title, subjects, 'timetable').then(async () => {
+              await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Timetable notification sent to ${token} - ${subjects} - ${schoolCode} - ${grade}-${classNum}\n`);
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error sending timetable notification to ${token}:`, error);
+        await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending timetable notification to ${token}: ${JSON.stringify(error)}\n`);
+      }
+    }
+  }
+}
+
+async function sendNotification(token: string, title: string, message: string, type: 'meal' | 'timetable') {
   const payload = {
     notification: {
       title,
       body: message,
+    },
+    data: {
+      type, // Add type field for client to distinguish notification types
     },
     token: token,
   };
 
   try {
     await admin.messaging().send(payload);
-    console.log(`Notification sent to ${token} at ${new Date().toISOString()}`);
+    console.log(`${type} notification sent to ${token} at ${new Date().toISOString()}`);
   } catch (error) {
-    console.error(`Error sending notification to ${token}:`, error);
-    await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending notification to ${token}: ${JSON.stringify(error)}\n`);
+    console.error(`Error sending ${type} notification to ${token}:`, error);
+    await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending ${type} notification to ${token}: ${JSON.stringify(error)}\n`);
+
+    // If token is invalid, remove it from collection
+    if ((error as any)?.code === 'messaging/invalid-registration-token' ||
+        (error as any)?.code === 'messaging/registration-token-not-registered') {
+      try {
+        if (type === 'meal') {
+          await mealCollection.remove(token);
+        } else {
+          await timetableCollection.remove(token);
+        }
+        console.log(`Removed invalid token: ${token}`);
+      } catch (removeError) {
+        console.error(`Error removing invalid token ${token}:`, removeError);
+      }
+    }
   }
 }
