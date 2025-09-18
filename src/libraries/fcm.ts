@@ -33,7 +33,6 @@ export const sendFcm = cron({
 
       // Send timetable notifications
       await sendTimetableNotifications(currentTime);
-
     } catch (error) {
       console.error('Error sending FCM:', error);
       await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending FCM: ${JSON.stringify(error)}\n`);
@@ -52,9 +51,13 @@ async function sendMealNotifications(currentTime: string, today: string) {
         if (meals.length > 0) {
           const title = '🍴 오늘의 급식';
           const mealItems = meals[0].meal;
-          const message = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
-            ? (mealItems as string[]).join(' / ').trim()
-            : (mealItems as MealItem[]).map(item => item.food).join(' / ').trim();
+          const message =
+            Array.isArray(mealItems) && typeof mealItems[0] === 'string'
+              ? (mealItems as string[]).join(' / ').trim()
+              : (mealItems as MealItem[])
+                  .map((item) => item.food)
+                  .join(' / ')
+                  .trim();
 
           await sendNotification(token, title, message, 'meal').then(async () => {
             await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Meal notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
@@ -87,20 +90,20 @@ async function sendKeywordNotifications(today: string) {
 
       if (meals.length > 0) {
         const mealItems = meals[0].meal;
-        const mealText = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
-          ? (mealItems as string[]).join(' ')
-          : (mealItems as MealItem[]).map(item => item.food).join(' ');
+        const mealText = Array.isArray(mealItems) && typeof mealItems[0] === 'string' ? (mealItems as string[]).join(' ') : (mealItems as MealItem[]).map((item) => item.food).join(' ');
 
         // Check if any keyword matches
-        const matchedKeywords = keywords.filter(keyword =>
-          mealText.toLowerCase().includes(keyword.toLowerCase())
-        );
+        const matchedKeywords = keywords.filter((keyword) => mealText.toLowerCase().includes(keyword.toLowerCase()));
 
         if (matchedKeywords.length > 0) {
-          const title = `🔔 오늘 급식에 "${matchedKeywords.join(', ')}"이(가) 있어요!`;
-          const message = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
-            ? (mealItems as string[]).join(' / ').trim()
-            : (mealItems as MealItem[]).map(item => item.food).join(' / ').trim();
+          const title = `🔔 오늘 급식에 "${matchedKeywords.join(', ')}"이(가) 있어요`;
+          const message =
+            Array.isArray(mealItems) && typeof mealItems[0] === 'string'
+              ? (mealItems as string[]).join(' / ').trim()
+              : (mealItems as MealItem[])
+                  .map((item) => item.food)
+                  .join(' / ')
+                  .trim();
 
           await sendNotification(token, title, message, 'keyword').then(async () => {
             await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Keyword notification sent to ${token} - Keywords: ${matchedKeywords.join(', ')} - ${schoolCode} - ${regionCode}\n`);
@@ -129,18 +132,13 @@ async function sendTimetableNotifications(currentTime: string) {
     if (time === currentTime) {
       try {
         // Get timetable from Comcigan API
-        const timetable = await comcigan.getTimetable(
-          Number(schoolCode),
-          Number(grade),
-          Number(classNum),
-          weekday as Weekday
-        ) as TimetableItem[];
+        const timetable = (await comcigan.getTimetable(Number(schoolCode), Number(grade), Number(classNum), weekday as Weekday)) as TimetableItem[];
 
         if (timetable && timetable.length > 0) {
           const title = `📚 오늘은 ${timetable.length}교시에요`;
           const subjects = timetable
-            .filter(item => item.subject && item.subject !== '')
-            .map(item => item.subject)
+            .filter((item) => item.subject && item.subject !== '')
+            .map((item) => item.subject)
             .join(' / ');
 
           if (subjects) {
@@ -177,8 +175,7 @@ async function sendNotification(token: string, title: string, message: string, t
     await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending ${type} notification to ${token}: ${JSON.stringify(error)}\n`);
 
     // If token is invalid, remove it from collection
-    if ((error as any)?.code === 'messaging/invalid-registration-token' ||
-        (error as any)?.code === 'messaging/registration-token-not-registered') {
+    if ((error as any)?.code === 'messaging/invalid-registration-token' || (error as any)?.code === 'messaging/registration-token-not-registered') {
       try {
         if (type === 'meal') {
           await mealCollection.remove(token);
