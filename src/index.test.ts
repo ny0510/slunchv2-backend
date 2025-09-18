@@ -6,7 +6,7 @@ import type { Cache, SchoolSearchResult } from './types';
 
 const default_url = 'http://localhost:3000';
 
-async function _getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'GET') {
+async function _getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, any> = {}, method: string = 'GET') {
   let first = true;
   let final_url = default_url + url;
   for (const v of Object.keys(query)) {
@@ -18,20 +18,27 @@ async function _getResponse(url: string, query: Record<string, string> = {}, hea
     }
     final_url += `${encodeURI(v)}=${encodeURI(query[v])}`;
   }
+
+  const hasBody = method !== 'GET' && Object.keys(body).length > 0;
+  const finalHeaders = {
+    ...headers,
+    ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+  };
+
   return await app.handle(
     new Request(final_url, {
-      headers: headers,
+      headers: finalHeaders,
       method: method,
-      body: JSON.stringify(body),
+      body: hasBody ? JSON.stringify(body) : undefined,
     })
   );
 }
 
-async function getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'GET') {
+async function getResponse(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, any> = {}, method: string = 'GET') {
   return await (await _getResponse(url, query, headers, body, method)).json();
 }
 
-async function getResponseStatus(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, string> = {}, method: string = 'POST') {
+async function getResponseStatus(url: string, query: Record<string, string> = {}, headers: Record<string, string> = {}, body: Record<string, any> = {}, method: string = 'POST') {
   return (await _getResponse(url, query, headers, body, method)).status;
 }
 
@@ -52,7 +59,7 @@ describe('neis', () => {
     const collection = db.openDB({ name: 'school', dupSort: true });
     const informationCollection = db.openDB({ name: 'schoolInformation' });
     for (const v of data) {
-      await collection.put("서울", v.schoolName);
+      await collection.put('서울', v.schoolName);
       await informationCollection.put(v.schoolName, v);
     }
     expect(
@@ -109,25 +116,70 @@ describe('notifications', () => {
   //})
 });
 
-describe('fcm', async () => {
-  const url = '/fcm';
-  const collection = db.openDB({ name: DB_COLLECTIONS.FCM });
-  await collection.put('test', { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
-  it('post invalid token', async () => {
-    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '25:00', schoolCode: '12345', regionCode: 'A1' })).toBe(422);
-    expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '24:59', schoolCode: '12345', regionCode: 'A1' })).toBe(422);
+describe('fcm-meal', async () => {
+  const url = '/fcm/meal';
+  const collection = db.openDB({ name: DB_COLLECTIONS.FCM_MEAL });
+  await collection.put('test-meal', { token: 'test-meal', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
+
+  it('post invalid time', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-meal-2', time: '25:00', schoolCode: '12345', regionCode: 'A1' })).toBe(400);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-meal-2', time: '24:59', schoolCode: '12345', regionCode: 'A1' })).toBe(400);
   });
-  // it('post fcm', async () => {
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' })).toBe(200);
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' })).toBe(409);
-  // });
-  it('get fcm', async () => {
-    expect(await getResponse(url, { token: 'test' })).toEqual({ token: 'test', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
+
+  it('post meal notification', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-meal-new', time: '07:00', schoolCode: '12345', regionCode: 'B10' })).toBe(200);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-meal-new', time: '07:00', schoolCode: '12345', regionCode: 'B10' })).toBe(409);
+  });
+
+  it('get meal notification', async () => {
+    expect(await getResponse(url, { token: 'test-meal' })).toEqual({ token: 'test-meal', time: '01:00', schoolCode: '12345', regionCode: 'A1' });
     expect(await getResponseStatus(url, { token: 'notexist' }, {}, {}, 'GET')).toBe(404);
   });
-  // it('delete fcm', async () => {
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE')).toBe(404);
-  //   expect(await getResponseStatus(url, {}, {}, { token: 'test' }, 'DELETE')).toBe(200);
-  //   expect(await getResponseStatus(url, { token: 'test' }, {}, {}, 'GET')).toBe(404);
-  // });
+
+  it('put meal notification', async () => {
+    // Create a new token for PUT test to avoid affecting other tests
+    await collection.put('test-meal-put', { token: 'test-meal-put', time: '07:00', schoolCode: '11111', regionCode: 'B1' });
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-meal-put', time: '08:00', schoolCode: '54321', regionCode: 'C10' }, 'PUT')).toBe(200);
+    expect(await getResponse(url, { token: 'test-meal-put' })).toEqual({ token: 'test-meal-put', time: '08:00', schoolCode: '54321', regionCode: 'C10' });
+  });
+
+  it('delete meal notification', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE')).toBe(404);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-meal-new' }, 'DELETE')).toBe(200);
+    expect(await getResponseStatus(url, { token: 'test-meal-new' }, {}, {}, 'GET')).toBe(404);
+  });
+});
+
+describe('fcm-timetable', async () => {
+  const url = '/fcm/timetable';
+  const collection = db.openDB({ name: DB_COLLECTIONS.FCM_TIMETABLE });
+  await collection.put('test-timetable', { token: 'test-timetable', time: '07:30', schoolCode: '41896', grade: '1', class: '1' });
+
+  it('post invalid time', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-tt-2', time: '25:00', schoolCode: 41896, grade: 1, class: 1 })).toBe(400);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-tt-2', time: '24:59', schoolCode: 41896, grade: 1, class: 1 })).toBe(400);
+  });
+
+  it('post timetable notification', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-tt-new', time: '08:00', schoolCode: 41896, grade: 2, class: 3 })).toBe(200);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-tt-new', time: '08:00', schoolCode: 41896, grade: 2, class: 3 })).toBe(409);
+  });
+
+  it('get timetable notification', async () => {
+    expect(await getResponse(url, { token: 'test-timetable' })).toEqual({ token: 'test-timetable', time: '07:30', schoolCode: '41896', grade: '1', class: '1' });
+    expect(await getResponseStatus(url, { token: 'notexist' }, {}, {}, 'GET')).toBe(404);
+  });
+
+  it('put timetable notification', async () => {
+    // Create a new token for PUT test to avoid affecting other tests
+    await collection.put('test-tt-put', { token: 'test-tt-put', time: '07:00', schoolCode: '12345', grade: '2', class: '2' });
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-tt-put', time: '08:30', schoolCode: 41896, grade: 3, class: 5 }, 'PUT')).toBe(200);
+    expect(await getResponse(url, { token: 'test-tt-put' })).toEqual({ token: 'test-tt-put', time: '08:30', schoolCode: '41896', grade: '3', class: '5' });
+  });
+
+  it('delete timetable notification', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE')).toBe(404);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-tt-new' }, 'DELETE')).toBe(200);
+    expect(await getResponseStatus(url, { token: 'test-tt-new' }, {}, {}, 'GET')).toBe(404);
+  });
 });
