@@ -150,6 +150,42 @@ describe('fcm-meal', async () => {
   });
 });
 
+describe('fcm-keyword', async () => {
+  const url = '/fcm/keyword';
+  const collection = db.openDB({ name: DB_COLLECTIONS.FCM_KEYWORD });
+  await collection.put('test-keyword', { token: 'test-keyword', keywords: ['피자', '치킨'], time: '07:00', schoolCode: '12345', regionCode: 'B10' });
+
+  it('post keyword notification with empty keywords', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-kw-2', keywords: [], time: '07:00', schoolCode: 12345, regionCode: 'B10' })).toBe(422);
+  });
+
+  it('post keyword notification with invalid time', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-kw-3', keywords: ['피자'], time: '25:00', schoolCode: 12345, regionCode: 'B10' })).toBe(400);
+  });
+
+  it('post keyword notification', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-kw-new', keywords: ['햄버거', '콜라'], time: '08:00', schoolCode: 12345, regionCode: 'B10' })).toBe(200);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-kw-new', keywords: ['햄버거'], time: '08:00', schoolCode: 12345, regionCode: 'B10' })).toBe(409);
+  });
+
+  it('get keyword notification', async () => {
+    expect(await getResponse(url, { token: 'test-keyword' })).toEqual({ token: 'test-keyword', keywords: ['피자', '치킨'], time: '07:00', schoolCode: '12345', regionCode: 'B10' });
+    expect(await getResponseStatus(url, { token: 'notexist' }, {}, {}, 'GET')).toBe(404);
+  });
+
+  it('put keyword notification', async () => {
+    await collection.put('test-kw-put', { token: 'test-kw-put', keywords: ['김치'], time: '06:30', schoolCode: '11111', regionCode: 'C10' });
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-kw-put', keywords: ['불고기', '된장찌개'], time: '07:30', schoolCode: 54321, regionCode: 'J10' }, 'PUT')).toBe(200);
+    expect(await getResponse(url, { token: 'test-kw-put' })).toEqual({ token: 'test-kw-put', keywords: ['불고기', '된장찌개'], time: '07:30', schoolCode: '54321', regionCode: 'J10' });
+  });
+
+  it('delete keyword notification', async () => {
+    expect(await getResponseStatus(url, {}, {}, { token: 'notexist' }, 'DELETE')).toBe(404);
+    expect(await getResponseStatus(url, {}, {}, { token: 'test-kw-new' }, 'DELETE')).toBe(200);
+    expect(await getResponseStatus(url, { token: 'test-kw-new' }, {}, {}, 'GET')).toBe(404);
+  });
+});
+
 describe('fcm-timetable', async () => {
   const url = '/fcm/timetable';
   const collection = db.openDB({ name: DB_COLLECTIONS.FCM_TIMETABLE });

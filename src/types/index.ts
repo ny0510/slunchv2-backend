@@ -66,6 +66,14 @@ export interface TimetableSubscription {
   class: string;
 }
 
+export interface KeywordSubscription {
+  token: string;
+  keywords: string[];
+  time: string;
+  schoolCode: string;
+  regionCode: string;
+}
+
 export interface FcmSubscription {
   token: string;
   time: string;

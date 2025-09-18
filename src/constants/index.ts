@@ -60,6 +60,7 @@ export const DB_COLLECTIONS = {
   FCM: 'fcm',
   FCM_MEAL: 'fcm_meal',
   FCM_TIMETABLE: 'fcm_timetable',
+  FCM_KEYWORD: 'fcm_keyword',
   NOTIFICATIONS: 'notifications',
 } as const;
 

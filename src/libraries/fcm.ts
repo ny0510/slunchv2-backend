@@ -6,7 +6,7 @@ import Comcigan, { Weekday } from 'comcigan.ts';
 import { appendFile } from 'node:fs/promises';
 import { DB_COLLECTIONS } from '../constants';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/validation';
-import type { MealSubscription, TimetableSubscription, MealItem, TimetableItem } from '../types';
+import type { MealSubscription, TimetableSubscription, KeywordSubscription, MealItem, TimetableItem } from '../types';
 
 admin.initializeApp({
   credential: admin.credential.cert('serviceAccountKey.json'),
@@ -14,6 +14,7 @@ admin.initializeApp({
 
 const mealCollection = db.openDB({ name: DB_COLLECTIONS.FCM_MEAL });
 const timetableCollection = db.openDB({ name: DB_COLLECTIONS.FCM_TIMETABLE });
+const keywordCollection = db.openDB({ name: DB_COLLECTIONS.FCM_KEYWORD });
 const comcigan = new Comcigan();
 
 export const sendFcm = cron({
@@ -24,8 +25,11 @@ export const sendFcm = cron({
       const currentTime = getCurrentTimeFormatted();
       const today = getCurrentDateFormatted();
 
-      // Send meal notifications
+      // Send meal notifications (regular time-based)
       await sendMealNotifications(currentTime, today);
+
+      // Send keyword notifications (checks meal contents at meal notification time)
+      await sendKeywordNotifications(today);
 
       // Send timetable notifications
       await sendTimetableNotifications(currentTime);
@@ -60,6 +64,52 @@ async function sendMealNotifications(currentTime: string, today: string) {
         console.error(`Error sending meal notification to ${token}:`, error);
         await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending meal notification to ${token}: ${JSON.stringify(error)}\n`);
       }
+    }
+  }
+}
+
+async function sendKeywordNotifications(today: string) {
+  const currentTime = getCurrentTimeFormatted();
+
+  // Get all keyword subscriptions
+  for (const v of keywordCollection.getKeys()) {
+    const subscription = keywordCollection.get(v.toString()) as KeywordSubscription;
+    const { token, keywords, time, schoolCode, regionCode } = subscription;
+
+    // Only send at the configured time
+    if (time !== currentTime) {
+      continue;
+    }
+
+    try {
+      // Get today's meal
+      const meals = await getMeal(schoolCode, regionCode, today);
+
+      if (meals.length > 0) {
+        const mealItems = meals[0].meal;
+        const mealText = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
+          ? (mealItems as string[]).join(' ')
+          : (mealItems as MealItem[]).map(item => item.food).join(' ');
+
+        // Check if any keyword matches
+        const matchedKeywords = keywords.filter(keyword =>
+          mealText.toLowerCase().includes(keyword.toLowerCase())
+        );
+
+        if (matchedKeywords.length > 0) {
+          const title = `🔔 오늘 급식에 "${matchedKeywords.join(', ')}"이(가) 있어요!`;
+          const message = Array.isArray(mealItems) && typeof mealItems[0] === 'string'
+            ? (mealItems as string[]).join(' / ').trim()
+            : (mealItems as MealItem[]).map(item => item.food).join(' / ').trim();
+
+          await sendNotification(token, title, message, 'keyword').then(async () => {
+            await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Keyword notification sent to ${token} - Keywords: ${matchedKeywords.join(', ')} - ${schoolCode} - ${regionCode}\n`);
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Error sending keyword notification to ${token}:`, error);
+      await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending keyword notification to ${token}: ${JSON.stringify(error)}\n`);
     }
   }
 }
@@ -107,7 +157,7 @@ async function sendTimetableNotifications(currentTime: string) {
   }
 }
 
-async function sendNotification(token: string, title: string, message: string, type: 'meal' | 'timetable') {
+async function sendNotification(token: string, title: string, message: string, type: 'meal' | 'timetable' | 'keyword') {
   const payload = {
     notification: {
       title,
@@ -132,8 +182,10 @@ async function sendNotification(token: string, title: string, message: string, t
       try {
         if (type === 'meal') {
           await mealCollection.remove(token);
-        } else {
+        } else if (type === 'timetable') {
           await timetableCollection.remove(token);
+        } else if (type === 'keyword') {
+          await keywordCollection.remove(token);
         }
         console.log(`Removed invalid token: ${token}`);
       } catch (removeError) {

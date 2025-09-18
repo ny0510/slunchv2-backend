@@ -3,10 +3,11 @@ import { db } from '../libraries/db';
 import { ERROR_MESSAGES, DB_COLLECTIONS } from '../constants';
 import { validateRequired, validateTimeFormat } from '../utils/validation';
 import { throwNotFound, throwConflict } from '../utils/errors';
-import type { MealSubscription, TimetableSubscription } from '../types';
+import type { MealSubscription, TimetableSubscription, KeywordSubscription } from '../types';
 
 const mealCollection = db.openDB({ name: DB_COLLECTIONS.FCM_MEAL });
 const timetableCollection = db.openDB({ name: DB_COLLECTIONS.FCM_TIMETABLE });
+const keywordCollection = db.openDB({ name: DB_COLLECTIONS.FCM_KEYWORD });
 
 const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
   .group('/meal', meal => meal
@@ -308,6 +309,172 @@ const app = new Elysia({ prefix: '/fcm', tags: ['fcm'] })
             schoolCode: t.String({ description: '학교 코드' }),
             grade: t.String({ description: '학년' }),
             class: t.String({ description: '반' }),
+          }),
+          400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+          404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+          500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        },
+      }
+    )
+  )
+  .group('/keyword', keyword => keyword
+    .get(
+      '/',
+      async ({ query }) => {
+        validateRequired(query.token, ERROR_MESSAGES.TOKEN_REQUIRED);
+
+        if (!keywordCollection.doesExist(query.token!)) {
+          throwNotFound(ERROR_MESSAGES.TOKEN_NOT_FOUND);
+        }
+
+        return keywordCollection.get(query.token!) as KeywordSubscription;
+      },
+      {
+        detail: { summary: '키워드 알림 정보 불러오기' },
+        query: t.Object({
+          token: t.String({ description: 'fcm 토큰' }),
+        }),
+        response: {
+          200: t.Object({
+            token: t.String({ description: 'fcm 토큰' }),
+            keywords: t.Array(t.String(), { description: '키워드 목록' }),
+            time: t.String({ description: '알림 시간', example: '07:00' }),
+            schoolCode: t.String({ description: '학교 코드' }),
+            regionCode: t.String({ description: '지역 코드' }),
+          }),
+          404: t.Object({ message: t.String() }),
+          400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        },
+      }
+    )
+    .post(
+      '/',
+      async ({ body }) => {
+        const { token, keywords, time, schoolCode, regionCode } = body;
+        validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+        validateRequired(keywords, '키워드를 입력해주세요.');
+        validateRequired(time, ERROR_MESSAGES.TIME_REQUIRED);
+        validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+        validateRequired(regionCode, ERROR_MESSAGES.REGION_CODE_REQUIRED);
+
+        validateTimeFormat(time!);
+
+        if (!Array.isArray(keywords) || keywords.length === 0) {
+          throw new Error('키워드는 최소 1개 이상 입력해주세요.');
+        }
+
+        if (keywordCollection.doesExist(token!)) {
+          throwConflict(ERROR_MESSAGES.TOKEN_ALREADY_EXISTS);
+        }
+
+        const subscription: KeywordSubscription = {
+          token: token!,
+          keywords: keywords!,
+          time: time!,
+          schoolCode: String(schoolCode!),
+          regionCode: regionCode!
+        };
+        await keywordCollection.put(token!, subscription);
+
+        return subscription;
+      },
+      {
+        body: t.Object({
+          token: t.String({ description: 'fcm 토큰' }),
+          keywords: t.Array(t.String(), { description: '키워드 목록', minItems: 1 }),
+          time: t.String({ description: '알림 시간', example: '07:00' }),
+          schoolCode: t.Union([t.String(), t.Number()], { description: '학교 코드' }),
+          regionCode: t.String({ description: '지역 코드' }),
+        }),
+        detail: { summary: '키워드 알림 추가' },
+        response: {
+          200: t.Object({
+            token: t.String({ description: 'fcm 토큰' }),
+            keywords: t.Array(t.String(), { description: '키워드 목록' }),
+            time: t.String({ description: '알림 시간', example: '07:00' }),
+            schoolCode: t.String({ description: '학교 코드' }),
+            regionCode: t.String({ description: '지역 코드' }),
+          }),
+          400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+          409: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+          500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        },
+      }
+    )
+    .delete(
+      '/',
+      async ({ body }) => {
+        const { token } = body;
+        validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+
+        if (!keywordCollection.doesExist(token!)) {
+          throwNotFound(ERROR_MESSAGES.TOKEN_NOT_FOUND);
+        }
+
+        await keywordCollection.remove(token!);
+
+        return { message: ERROR_MESSAGES.TOKEN_DELETED };
+      },
+      {
+        body: t.Object({
+          token: t.String(),
+        }),
+        detail: { summary: '키워드 알림 삭제' },
+        response: {
+          200: t.Object({ message: t.String() }),
+          400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+          404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+          500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+        },
+      }
+    )
+    .put(
+      '/',
+      async ({ body }) => {
+        const { token, keywords, time, schoolCode, regionCode } = body;
+        validateRequired(token, ERROR_MESSAGES.TOKEN_REQUIRED);
+        validateRequired(keywords, '키워드를 입력해주세요.');
+        validateRequired(time, ERROR_MESSAGES.TIME_REQUIRED);
+        validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+        validateRequired(regionCode, ERROR_MESSAGES.REGION_CODE_REQUIRED);
+
+        validateTimeFormat(time!);
+
+        if (!Array.isArray(keywords) || keywords.length === 0) {
+          throw new Error('키워드는 최소 1개 이상 입력해주세요.');
+        }
+
+        if (!keywordCollection.doesExist(token!)) {
+          throwNotFound(ERROR_MESSAGES.TOKEN_NOT_FOUND);
+        }
+
+        const subscription: KeywordSubscription = {
+          token: token!,
+          keywords: keywords!,
+          time: time!,
+          schoolCode: String(schoolCode!),
+          regionCode: regionCode!
+        };
+        await keywordCollection.put(token!, subscription);
+
+        return subscription;
+      },
+      {
+        body: t.Object({
+          token: t.String({ description: 'fcm 토큰' }),
+          keywords: t.Array(t.String(), { description: '키워드 목록', minItems: 1 }),
+          time: t.String({ description: '알림 시간', example: '07:00' }),
+          schoolCode: t.Union([t.String(), t.Number()], { description: '학교 코드' }),
+          regionCode: t.String({ description: '지역 코드' }),
+        }),
+        detail: { summary: '키워드 알림 수정' },
+        response: {
+          200: t.Object({
+            token: t.String({ description: 'fcm 토큰' }),
+            keywords: t.Array(t.String(), { description: '키워드 목록' }),
+            time: t.String({ description: '알림 시간', example: '07:00' }),
+            schoolCode: t.String({ description: '학교 코드' }),
+            regionCode: t.String({ description: '지역 코드' }),
           }),
           400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
           404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
