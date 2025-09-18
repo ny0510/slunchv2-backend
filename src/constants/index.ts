@@ -58,6 +58,8 @@ export const DB_COLLECTIONS = {
   SCHOOL: 'school',
   SCHOOL_INFORMATION: 'schoolInformation',
   FCM: 'fcm',
+  FCM_MEAL: 'fcm_meal',
+  FCM_TIMETABLE: 'fcm_timetable',
   NOTIFICATIONS: 'notifications',
 } as const;
 

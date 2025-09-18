@@ -51,6 +51,21 @@ export interface Notification {
   date: string;
 }
 
+export interface MealSubscription {
+  token: string;
+  time: string;
+  schoolCode: string;
+  regionCode: string;
+}
+
+export interface TimetableSubscription {
+  token: string;
+  time: string;
+  schoolCode: string;
+  grade: string;
+  class: string;
+}
+
 export interface FcmSubscription {
   token: string;
   time: string;
