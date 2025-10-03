@@ -118,12 +118,16 @@ async function sendKeywordNotifications(today: string) {
 }
 
 async function sendTimetableNotifications(currentTime: string) {
-  // Get current day of week (1=Monday, 5=Friday)
+  // Get current day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
   const dayOfWeek = new Date().getDay();
-  // Convert to weekday format (Sunday=0 to Monday=1)
-  const weekday = dayOfWeek === 0 ? null : dayOfWeek; // Skip Sunday
 
-  if (!weekday || weekday > 5) return; // Skip weekends
+  // Skip weekends (Saturday=6, Sunday=0)
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    console.log('Skipping timetable notifications on weekend');
+    return;
+  }
+
+  // dayOfWeek is now 1-5 (Monday to Friday), which matches Comcigan's Weekday type
 
   for (const v of timetableCollection.getKeys()) {
     const subscription = timetableCollection.get(v.toString()) as TimetableSubscription;
@@ -131,20 +135,25 @@ async function sendTimetableNotifications(currentTime: string) {
 
     if (time === currentTime) {
       try {
-        // Get timetable from Comcigan API
-        const timetable = (await comcigan.getTimetable(Number(schoolCode), Number(grade), Number(classNum), weekday as Weekday)) as TimetableItem[];
+        // Get timetable from Comcigan API (dayOfWeek is 1-5 for Monday-Friday)
+        const timetable = (await comcigan.getTimetable(Number(schoolCode), Number(grade), Number(classNum), dayOfWeek as Weekday)) as TimetableItem[];
 
         if (timetable && timetable.length > 0) {
-          const title = `📚 오늘은 ${timetable.length}교시에요`;
-          const subjects = timetable
-            .filter((item) => item.subject && item.subject !== '')
-            .map((item) => item.subject)
-            .join(' / ');
+          // Filter out empty subjects and '없음' (no class)
+          const validSubjects = timetable
+            .filter((item) => item.subject && item.subject !== '' && item.subject !== '없음')
+            .map((item) => item.subject);
 
-          if (subjects) {
+          // Only send notification if there are actual subjects (not all '없음')
+          if (validSubjects.length > 0) {
+            const title = `📚 오늘은 ${validSubjects.length}교시에요`;
+            const subjects = validSubjects.join(' / ');
+
             await sendNotification(token, title, subjects, 'timetable').then(async () => {
               await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Timetable notification sent to ${token} - ${subjects} - ${schoolCode} - ${grade}-${classNum}\n`);
             });
+          } else {
+            console.log(`Skipping timetable notification for ${token}: All classes are empty or '없음'`);
           }
         }
       } catch (error) {
