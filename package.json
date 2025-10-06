@@ -13,7 +13,7 @@
 		"elysia": "^1.4.9",
 		"elysia-rate-limit": "^4.4.0",
 		"firebase-admin": "^13.5.0",
-		"lmdb": "^3.4.2",
+		"lmdb": "^3.4.3",
 		"logixlysia": "^5.2.0",
 		"neis.ts": "^1.3.0"
 	},
