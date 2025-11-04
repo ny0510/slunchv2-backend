@@ -7,10 +7,10 @@
 	},
 	"dependencies": {
 		"@elysiajs/cron": "^1.4.1",
-		"@elysiajs/static": "^1.4.4",
+		"@elysiajs/static": "^1.4.6",
 		"@elysiajs/swagger": "^1.3.1",
 		"comcigan.ts": "^1.2.2",
-		"elysia": "^1.4.13",
+		"elysia": "^1.4.15",
 		"elysia-rate-limit": "^4.4.2",
 		"firebase-admin": "^13.5.0",
 		"lmdb": "^3.4.3",
