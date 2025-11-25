@@ -107,17 +107,21 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
     '/schedule',
     async ({ query }) => {
+      const startTime = Date.now();
       const { schoolCode, regionCode, year, month, day } = query;
       validateSchoolParams(schoolCode, regionCode);
       validateDateParams(year, month);
 
       try {
         const dateFormatted = formatDateForApi(year!, month!, day);
+        console.log(`[SCHEDULE] Fetching from NEIS API - No cache available`);
+        const apiStart = Date.now();
         const fetchedSchedules = await neis.getSchedule({
           SD_SCHUL_CODE: schoolCode!,
           ATPT_OFCDC_SC_CODE: regionCode!,
           AA_YMD: dateFormatted,
         });
+        console.log(`[SCHEDULE] NEIS API call took ${Date.now() - apiStart}ms`);
 
         const schedulesMap: { [key: string]: { start: string; end: string; schedules: string[] } } = {};
 
@@ -152,6 +156,7 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
 
         if (prevSchedule) combinedSchedules.push(prevSchedule);
 
+        console.log(`[SCHEDULE] Total request time: ${Date.now() - startTime}ms`);
         return combinedSchedules;
       } catch (e) {
         handleNeisError(e as Error);

@@ -98,24 +98,33 @@ export async function getMeal(
   showOrigin: boolean = false,
   showNutrition: boolean = false
 ): Promise<Meal[]> {
+  const startTime = Date.now();
   try {
     // Track school access for popularity metrics
     trackSchoolAccess(school_code, region_code);
 
     const db_date = formatDate(mlsv_ymd);
     const cacheKey = `${region_code}_${school_code}_${db_date}`;
+
+    const cacheCheckStart = Date.now();
     const cachedMeal = mealCollection.get(cacheKey) as Cache | undefined | null;
+    console.log(`[MEAL] Cache check took ${Date.now() - cacheCheckStart}ms`);
 
     if (cachedMeal != null && cachedMeal != undefined) {
+      console.log(`[MEAL] Cache HIT for ${cacheKey} - Total: ${Date.now() - startTime}ms`);
       return [formatMealResponse(cachedMeal, showAllergy, showOrigin, showNutrition)];
     }
 
+    console.log(`[MEAL] Cache MISS for ${cacheKey} - Fetching from NEIS API`);
+    const apiStart = Date.now();
     const fetchedMeals = await neis.getMeal({
       SD_SCHUL_CODE: school_code,
       ATPT_OFCDC_SC_CODE: region_code,
       MLSV_YMD: mlsv_ymd,
     });
+    console.log(`[MEAL] NEIS API call took ${Date.now() - apiStart}ms`);
 
+    const parseStart = Date.now();
     const meals: Meal[] = await Promise.all(
       fetchedMeals.map(async (m) => {
         const foods = parseMealData(m.DDISH_NM);
@@ -141,6 +150,8 @@ export async function getMeal(
         return formatMealResponse(cacheData, showAllergy, showOrigin, showNutrition);
       })
     );
+    console.log(`[MEAL] Parse & cache took ${Date.now() - parseStart}ms`);
+    console.log(`[MEAL] Total request time: ${Date.now() - startTime}ms`);
 
     return meals;
   } catch (e) {
@@ -150,16 +161,27 @@ export async function getMeal(
 
 
 export async function search(schoolName: string): Promise<SchoolSearchResult[]> {
+  const startTime = Date.now();
+
+  const cacheCheckStart = Date.now();
   const school: string[] = Array.from(schoolCollection.getValues(schoolName));
+  console.log(`[SEARCH] Cache check took ${Date.now() - cacheCheckStart}ms`);
+
   if (school.length > 0) {
+    console.log(`[SEARCH] Cache HIT for "${schoolName}" - Found ${school.length} schools - Total: ${Date.now() - startTime}ms`);
     return school.map((s) => schoolInformationCollection.get(s) as SchoolSearchResult).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
   }
+
+  console.log(`[SEARCH] Cache MISS for "${schoolName}" - Fetching from NEIS API`);
   try {
+    const apiStart = Date.now();
     const searchedSchools = await neis.getSchool({
       SCHUL_NM: schoolName,
       pSize: 100,
     });
+    console.log(`[SEARCH] NEIS API call took ${Date.now() - apiStart}ms`);
 
+    const parseStart = Date.now();
     const schools = searchedSchools
       .filter((school) => school.SCHUL_KND_SC_NM !== '초등학교')
       .map((school) => ({
@@ -169,11 +191,14 @@ export async function search(schoolName: string): Promise<SchoolSearchResult[]> 
         regionCode: school.ATPT_OFCDC_SC_CODE,
       }));
 
+    const cacheWriteStart = Date.now();
     for (const school of schools) {
       await schoolCollection.put(schoolName, school.schoolName);
       if (schoolInformationCollection.doesExist(school.schoolName)) continue;
       await schoolInformationCollection.put(school.schoolName, school);
     }
+    console.log(`[SEARCH] Cache write took ${Date.now() - cacheWriteStart}ms`);
+    console.log(`[SEARCH] Total request time: ${Date.now() - startTime}ms - Found ${schools.length} schools`);
 
     return schools;
   } catch (e) {
