@@ -2,7 +2,7 @@ import cron, { Patterns } from '@elysiajs/cron';
 import { db } from './db';
 import admin from 'firebase-admin';
 import { getMeal } from './cache';
-import Comcigan, { Weekday } from 'comcigan.ts';
+import Comcigan, { Weekday } from '@imnyang/comcigan.ts';
 import { appendFile } from 'node:fs/promises';
 import { DB_COLLECTIONS } from '../constants';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/validation';
