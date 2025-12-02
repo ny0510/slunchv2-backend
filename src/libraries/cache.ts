@@ -10,7 +10,7 @@ import type { Cache, Meal, SchoolSearchResult, MealItem, Origin, Nutrition } fro
 
 export const neis = new Neis({
   key: process.env.NEIS_API_KEY,
-  timeout: 10000, // 10초 타임아웃 (기본값 5초에서 증가)
+  timeout: 60000, // 1분 타임아웃 (기본값 5초에서 증가)
 });
 
 const mealCollection = db.openDB({ name: DB_COLLECTIONS.MEAL });
