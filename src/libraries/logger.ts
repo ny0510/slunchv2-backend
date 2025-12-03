@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 
 const logsDir = join(__dirname, '..', '..', 'logs');
 
@@ -9,6 +9,7 @@ if (!existsSync(logsDir)) {
 }
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+type LogType = 'general' | 'error' | 'fcm';
 
 interface LogEntry {
   timestamp: string;
@@ -19,18 +20,27 @@ interface LogEntry {
   data?: Record<string, any>;
 }
 
-function getLogFilePath(): string {
+function getDateStr(): string {
   const date = new Date();
-  const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-  return join(logsDir, `${dateStr}.json`);
+  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getLogFilePath(type: LogType = 'general'): string {
+  const dateStr = getDateStr();
+  switch (type) {
+    case 'error':
+      return join(logsDir, `${dateStr}_errors.json`);
+    case 'fcm':
+      return join(logsDir, `${dateStr}_fcm.json`);
+    default:
+      return join(logsDir, `${dateStr}.json`);
+  }
 }
 
 function readExistingLogs(filePath: string): LogEntry[] {
   try {
-    const file = Bun.file(filePath);
-    if (file.size > 0) {
-      // Bun.file().json() is async, so we use text() synchronously
-      const content = require('fs').readFileSync(filePath, 'utf-8');
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content);
     }
   } catch {
@@ -39,8 +49,8 @@ function readExistingLogs(filePath: string): LogEntry[] {
   return [];
 }
 
-function writeLog(entry: LogEntry): void {
-  const filePath = getLogFilePath();
+function writeLog(entry: LogEntry, type: LogType = 'general'): void {
+  const filePath = getLogFilePath(type);
   const logs = readExistingLogs(filePath);
   logs.push(entry);
   Bun.write(filePath, JSON.stringify(logs, null, 2));
@@ -60,13 +70,13 @@ function createLogEntry(level: LogLevel, category: string, message: string, data
 export const logger = {
   info: (category: string, message: string, data?: Record<string, any>) => {
     const entry = createLogEntry('info', category, message, data);
-    writeLog(entry);
+    writeLog(entry, 'general');
     console.log(`[${category}] ${message}`, data ? JSON.stringify(data) : '');
   },
 
   warn: (category: string, message: string, data?: Record<string, any>) => {
     const entry = createLogEntry('warn', category, message, data);
-    writeLog(entry);
+    writeLog(entry, 'general');
     console.warn(`[${category}] ${message}`, data ? JSON.stringify(data) : '');
   },
 
@@ -75,13 +85,13 @@ export const logger = {
       ...data,
       error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
     });
-    writeLog(entry);
+    writeLog(entry, 'error');
     console.error(`[${category}] ${message}`, error);
   },
 
   debug: (category: string, message: string, data?: Record<string, any>) => {
     const entry = createLogEntry('debug', category, message, data);
-    writeLog(entry);
+    writeLog(entry, 'general');
     console.debug(`[${category}] ${message}`, data ? JSON.stringify(data) : '');
   },
 
@@ -90,7 +100,7 @@ export const logger = {
    */
   withDuration: (category: string, message: string, duration: number, data?: Record<string, any>) => {
     const entry = createLogEntry('info', category, message, data, duration);
-    writeLog(entry);
+    writeLog(entry, 'general');
     console.log(`[${category}] ${message} - ${duration}ms`, data ? JSON.stringify(data) : '');
   },
 
@@ -103,7 +113,7 @@ export const logger = {
       end: (message?: string, data?: Record<string, any>) => {
         const duration = Date.now() - startTime;
         const entry = createLogEntry('info', category, message || operationName, data, duration);
-        writeLog(entry);
+        writeLog(entry, 'general');
         console.log(`[${category}] ${message || operationName} - ${duration}ms`, data ? JSON.stringify(data) : '');
         return duration;
       },
@@ -112,12 +122,12 @@ export const logger = {
   },
 
   /**
-   * FCM 관련 로그 (기존 appendFile 로직 대체)
+   * FCM 관련 로그 (별도 파일에 저장)
    */
   fcm: {
     notification: (token: string, type: string, data?: Record<string, any>) => {
       const entry = createLogEntry('info', 'FCM', `${type} notification sent`, { token, type, ...data });
-      writeLog(entry);
+      writeLog(entry, 'fcm');
       console.log(`[FCM] ${type} notification sent to ${token}`);
     },
     error: (token: string, type: string, error: any, data?: Record<string, any>) => {
@@ -127,7 +137,9 @@ export const logger = {
         error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
         ...data,
       });
-      writeLog(entry);
+      // FCM 에러는 fcm 로그와 error 로그 둘 다에 저장
+      writeLog(entry, 'fcm');
+      writeLog(entry, 'error');
       console.error(`[FCM] Error sending ${type} notification to ${token}:`, error);
     },
   },
