@@ -66,7 +66,7 @@ export const app = new Elysia()
       },
     })
   )
-  .use(staticPlugin({ assets: 'public', noCache: true }))
+  .use(staticPlugin({ assets: 'public' }))
   .use(
     rateLimit({
       errorResponse: new Response(`You are rate limited!\nvideo for you: https://youtu.be/${[susVideo()]}`, {
