@@ -1,5 +1,6 @@
 import { db } from '../libraries/db';
 import { DB_COLLECTIONS } from '../constants';
+import logger from '../libraries/logger';
 
 // Create a collection for tracking school access
 const accessCollection = db.openDB({ name: 'schoolAccess' });
@@ -35,7 +36,7 @@ export function trackSchoolAccess(schoolCode: string, regionCode: string): void 
     }
   } catch (error) {
     // Silently fail - tracking is not critical
-    console.error('Failed to track school access:', error);
+    logger.error('ACCESS-TRACKER', 'Failed to track school access', error, { schoolCode, regionCode });
   }
 }
 
@@ -65,7 +66,7 @@ export function getPopularSchools(limit: number = 20): { schoolCode: string; reg
       .slice(0, limit)
       .map(({ schoolCode, regionCode }) => ({ schoolCode, regionCode }));
   } catch (error) {
-    console.error('Failed to get popular schools:', error);
+    logger.error('ACCESS-TRACKER', 'Failed to get popular schools', error);
     // Return fallback schools if tracking fails
     return [
       { schoolCode: '7010908', regionCode: 'B10' }, // 선린인터넷고
@@ -90,8 +91,8 @@ export function cleanupOldAccessRecords(): void {
       }
     }
 
-    console.log('Cleaned up old access records');
+    logger.info('ACCESS-TRACKER', 'Cleaned up old access records');
   } catch (error) {
-    console.error('Failed to cleanup old access records:', error);
+    logger.error('ACCESS-TRACKER', 'Failed to cleanup old access records', error);
   }
 }

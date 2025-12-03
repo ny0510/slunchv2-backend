@@ -3,10 +3,10 @@ import { db } from './db';
 import admin from 'firebase-admin';
 import { getMeal } from './neis';
 import Comcigan, { Weekday } from '@imnyang/comcigan.ts';
-import { appendFile } from 'node:fs/promises';
 import { DB_COLLECTIONS } from '../constants';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/validation';
 import type { MealSubscription, TimetableSubscription, KeywordSubscription, MealItem, TimetableItem } from '../types';
+import logger from './logger';
 
 admin.initializeApp({
   credential: admin.credential.cert('serviceAccountKey.json'),
@@ -34,8 +34,7 @@ export const sendFcm = cron({
       // Send timetable notifications
       await sendTimetableNotifications(currentTime);
     } catch (error) {
-      console.error('Error sending FCM:', error);
-      await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending FCM: ${JSON.stringify(error)}\n`);
+      logger.error('FCM', 'Error sending FCM', error);
     }
   },
 });
@@ -59,13 +58,12 @@ async function sendMealNotifications(currentTime: string, today: string) {
                   .join(' / ')
                   .trim();
 
-          await sendNotification(token, title, message, 'meal').then(async () => {
-            await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Meal notification sent to ${token} - ${message} - ${schoolCode} - ${regionCode}\n`);
+          await sendNotification(token, title, message, 'meal').then(() => {
+            logger.fcm.notification(token, 'meal', { message, schoolCode, regionCode });
           });
         }
       } catch (error) {
-        console.error(`Error sending meal notification to ${token}:`, error);
-        await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending meal notification to ${token}: ${JSON.stringify(error)}\n`);
+        logger.fcm.error(token, 'meal', error, { schoolCode, regionCode });
       }
     }
   }
@@ -105,14 +103,13 @@ async function sendKeywordNotifications(today: string) {
                   .join(' / ')
                   .trim();
 
-          await sendNotification(token, title, message, 'keyword').then(async () => {
-            await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Keyword notification sent to ${token} - Keywords: ${matchedKeywords.join(', ')} - ${schoolCode} - ${regionCode}\n`);
+          await sendNotification(token, title, message, 'keyword').then(() => {
+            logger.fcm.notification(token, 'keyword', { keywords: matchedKeywords, schoolCode, regionCode });
           });
         }
       }
     } catch (error) {
-      console.error(`Error sending keyword notification to ${token}:`, error);
-      await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending keyword notification to ${token}: ${JSON.stringify(error)}\n`);
+      logger.fcm.error(token, 'keyword', error, { schoolCode, regionCode });
     }
   }
 }
@@ -123,7 +120,7 @@ async function sendTimetableNotifications(currentTime: string) {
 
   // Skip weekends (Saturday=6, Sunday=0)
   if (dayOfWeek === 0 || dayOfWeek === 6) {
-    console.log('Skipping timetable notifications on weekend');
+    logger.debug('FCM', 'Skipping timetable notifications on weekend');
     return;
   }
 
@@ -149,16 +146,15 @@ async function sendTimetableNotifications(currentTime: string) {
             const title = `📚 오늘은 ${validSubjects.length}교시에요`;
             const subjects = validSubjects.join(' / ');
 
-            await sendNotification(token, title, subjects, 'timetable').then(async () => {
-              await appendFile('./logs/fcm_notifications.log', `${new Date().toISOString()} - Timetable notification sent to ${token} - ${subjects} - ${schoolCode} - ${grade}-${classNum}\n`);
+            await sendNotification(token, title, subjects, 'timetable').then(() => {
+              logger.fcm.notification(token, 'timetable', { subjects, schoolCode, grade, class: classNum });
             });
           } else {
-            console.log(`Skipping timetable notification for ${token}: All classes are empty or '없음'`);
+            logger.debug('FCM', `Skipping timetable notification: All classes are empty`, { token });
           }
         }
       } catch (error) {
-        console.error(`Error sending timetable notification to ${token}:`, error);
-        await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending timetable notification to ${token}: ${JSON.stringify(error)}\n`);
+        logger.fcm.error(token, 'timetable', error, { schoolCode, grade, class: classNum });
       }
     }
   }
@@ -178,10 +174,9 @@ async function sendNotification(token: string, title: string, message: string, t
 
   try {
     await admin.messaging().send(payload);
-    console.log(`${type} notification sent to ${token} at ${new Date().toISOString()}`);
+    logger.info('FCM', `${type} notification sent`, { token, type });
   } catch (error) {
-    console.error(`Error sending ${type} notification to ${token}:`, error);
-    await appendFile('./logs/fcm_errors.log', `${new Date().toISOString()} - Error sending ${type} notification to ${token}: ${JSON.stringify(error)}\n`);
+    logger.fcm.error(token, type, error);
 
     // If token is invalid, remove it from collection
     if ((error as any)?.code === 'messaging/invalid-registration-token' || (error as any)?.code === 'messaging/registration-token-not-registered') {
@@ -193,9 +188,9 @@ async function sendNotification(token: string, title: string, message: string, t
         } else if (type === 'keyword') {
           await keywordCollection.remove(token);
         }
-        console.log(`Removed invalid token: ${token}`);
+        logger.info('FCM', 'Removed invalid token', { token });
       } catch (removeError) {
-        console.error(`Error removing invalid token ${token}:`, removeError);
+        logger.error('FCM', 'Error removing invalid token', removeError, { token });
       }
     }
   }

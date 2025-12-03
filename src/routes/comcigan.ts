@@ -3,6 +3,7 @@ import Comcigan, { School, Weekday } from '@imnyang/comcigan.ts';
 import { ERROR_MESSAGES } from '../constants';
 import { validateRequired } from '../utils/validation';
 import { handleComciganError } from '../utils/errors';
+import logger from '../libraries/logger';
 
 const comcigan = new Comcigan();
 
@@ -11,10 +12,9 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     const startTime = Date.now();
     validateRequired(query.schoolName, ERROR_MESSAGES.SCHOOL_NAME_REQUIRED);
 
-    console.log(`[COMCIGAN-SEARCH] Fetching from Comcigan API - No cache available`);
-    const apiStart = Date.now();
+    const timer = logger.startTimer('COMCIGAN-SEARCH', 'API call');
     const searchedSchools: School[] = await comcigan.searchSchools(query.schoolName!);
-    console.log(`[COMCIGAN-SEARCH] API call took ${Date.now() - apiStart}ms`);
+    timer.end('API call completed');
 
     const result = searchedSchools
       .filter((school) => school.code !== 0) // 없으면 추가 검색하세요 제외
@@ -24,7 +24,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
         region: school.region.name,
       }));
 
-    console.log(`[COMCIGAN-SEARCH] Total request time: ${Date.now() - startTime}ms - Found ${result.length} schools`);
+    logger.withDuration('COMCIGAN-SEARCH', 'Total request completed', Date.now() - startTime, { resultCount: result.length });
     return result;
   },
     {
@@ -53,14 +53,13 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     validateRequired(classNum, ERROR_MESSAGES.CLASS_REQUIRED);
 
     try {
-      console.log(`[COMCIGAN-TIMETABLE] Fetching from Comcigan API - No cache available`);
-      const apiStart = Date.now();
+      const timer = logger.startTimer('COMCIGAN-TIMETABLE', 'API call');
       const result = weekday ? 
         await comcigan.getTimetable(schoolCode, grade, classNum, weekday as never as Weekday, nextweek) : 
         await comcigan.getTimetable(schoolCode, grade, classNum, nextweek);
 
-      console.log(`[COMCIGAN-TIMETABLE] API call took ${Date.now() - apiStart}ms`);
-      console.log(`[COMCIGAN-TIMETABLE] Total request time: ${Date.now() - startTime}ms`);
+      timer.end('API call completed');
+      logger.withDuration('COMCIGAN-TIMETABLE', 'Total request completed', Date.now() - startTime, { schoolCode, grade, classNum });
       return result;
     } catch (e) {
       handleComciganError(e as Error);
@@ -142,17 +141,16 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
     validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
 
     try {
-      console.log(`[COMCIGAN-CLASSLIST] Fetching from Comcigan API - No cache available`);
-      const apiStart = Date.now();
+      const timer = logger.startTimer('COMCIGAN-CLASSLIST', 'API call');
       const timetable = await comcigan.getTimetable(schoolCode);
-      console.log(`[COMCIGAN-CLASSLIST] API call took ${Date.now() - apiStart}ms`);
+      timer.end('API call completed');
 
       const result = timetable.map((grade, gradeIndex) => ({
         grade: gradeIndex + 1,
         classes: grade.map((_, classIndex) => classIndex + 1),
       }));
 
-      console.log(`[COMCIGAN-CLASSLIST] Total request time: ${Date.now() - startTime}ms`);
+      logger.withDuration('COMCIGAN-CLASSLIST', 'Total request completed', Date.now() - startTime, { schoolCode });
       return result;
     } catch (e) {
       handleComciganError(e as Error);

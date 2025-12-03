@@ -2,16 +2,20 @@ import { Elysia, t } from 'elysia';
 import { getMeal, search, getSchedule } from '../libraries/neis';
 import { ERROR_MESSAGES } from '../constants';
 import { validateRequired, validateSchoolParams, validateDateParams, formatDateForApi } from '../utils/validation';
+import logger from '../libraries/logger';
 
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
     '/search',
     async ({ query }) => {
+      const timer = logger.startTimer('NEIS-ROUTE', '/search');
       const { schoolName } = query;
       validateRequired(schoolName, ERROR_MESSAGES.SCHOOL_NAME_REQUIRED);
 
-      return await search(schoolName);
+      const result = await search(schoolName);
+      timer.end('Search request completed', { schoolName, resultCount: result.length });
+      return result;
     },
     {
       query: t.Object({
@@ -36,12 +40,15 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
     '/meal',
     async ({ query }) => {
+      const timer = logger.startTimer('NEIS-ROUTE', '/meal');
       const { schoolCode, regionCode, year, month, day, showAllergy, showOrigin, showNutrition } = query;
       validateSchoolParams(schoolCode, regionCode);
       validateDateParams(year, month);
 
       const dateFormatted = formatDateForApi(year!, month!, day);
-      return getMeal(schoolCode!, regionCode!, dateFormatted, showAllergy, showOrigin, showNutrition);
+      const result = await getMeal(schoolCode!, regionCode!, dateFormatted, showAllergy, showOrigin, showNutrition);
+      timer.end('Meal request completed', { schoolCode, regionCode, date: dateFormatted, resultCount: result.length });
+      return result;
     },
     {
       query: t.Object({
@@ -105,12 +112,15 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
     }
   )
   .get('/schedule', async ({ query }) => {
+      const timer = logger.startTimer('NEIS-ROUTE', '/schedule');
       const { schoolCode, regionCode, year, month, day } = query;
       validateSchoolParams(schoolCode, regionCode);
       validateDateParams(year, month);
 
       const dateFormatted = formatDateForApi(year!, month!, day);
-      return getSchedule(schoolCode!, regionCode!, dateFormatted);
+      const result = await getSchedule(schoolCode!, regionCode!, dateFormatted);
+      timer.end('Schedule request completed', { schoolCode, regionCode, date: dateFormatted, resultCount: result.length });
+      return result;
     },
     {
       query: t.Object({

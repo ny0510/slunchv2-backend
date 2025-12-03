@@ -4,6 +4,7 @@ import { DB_COLLECTIONS, ALLERGY_TYPES } from '../constants';
 import { formatDate, getCurrentDateFormatted } from '../utils/validation';
 import { getPopularSchools, cleanupOldAccessRecords } from './access-tracker';
 import type { Cache, MealItem, Origin, Nutrition } from '../types';
+import logger from '../libraries/logger';
 import Neis from 'neis.ts';
 
 // Create a separate Neis instance for precaching with longer timeout
@@ -69,7 +70,7 @@ async function precacheSchoolMeal(schoolCode: string, regionCode: string, date: 
       } catch (err) {
         retries--;
         if (retries === 0) throw err;
-        console.log(`Retrying for ${schoolCode} (${retries} attempts left)...`);
+        logger.warn('MEAL-PRECACHE', `Retrying for ${schoolCode}`, { retriesLeft: retries });
         await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
       }
     }
@@ -96,17 +97,17 @@ async function precacheSchoolMeal(schoolCode: string, regionCode: string, date: 
 
       const key = `${regionCode}_${schoolCode}_${cacheData.date}`;
       await setCache(CacheCollection.MEAL, key, cacheData);
-      console.log(`Cached meal for ${schoolCode} on ${cacheData.date}`);
+      logger.info('MEAL-PRECACHE', `Cached meal`, { schoolCode, date: cacheData.date });
     }
     return { success: true, schoolCode, date };
   } catch (error) {
-    console.error(`Failed to precache meal for school ${schoolCode}:`, error);
+    logger.error('MEAL-PRECACHE', `Failed to precache meal`, error, { schoolCode });
     return { success: false, schoolCode, date, error };
   }
 }
 
 export async function precachePopularSchools(): Promise<void> {
-  console.log('Starting meal pre-caching for popular schools at', new Date().toISOString());
+  logger.info('MEAL-PRECACHE', 'Starting meal pre-caching for popular schools');
 
   // Clean up old access records first
   cleanupOldAccessRecords();
@@ -120,7 +121,7 @@ export async function precachePopularSchools(): Promise<void> {
 
   // Get dynamically determined popular schools based on actual usage
   const popularSchools = getPopularSchools(50); // Get top 50 most accessed schools
-  console.log(`Found ${popularSchools.length} popular schools to pre-cache`);
+  logger.info('MEAL-PRECACHE', `Found popular schools to pre-cache`, { count: popularSchools.length });
 
   // Cache meals for popular schools
   for (const school of popularSchools) {
@@ -141,18 +142,18 @@ export async function precachePopularSchools(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('Error reading FCM collection:', error);
+    logger.error('MEAL-PRECACHE', 'Error reading FCM collection', error);
   }
 
   const results = await Promise.all(promises);
   const successful = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
 
-  console.log(`Pre-caching completed: ${successful} successful, ${failed} failed at`, new Date().toISOString());
+  logger.info('MEAL-PRECACHE', 'Pre-caching completed', { successful, failed });
 
   // Log failed attempts for debugging
   const failedResults = results.filter((r) => !r.success);
   if (failedResults.length > 0) {
-    console.log('Failed schools:', failedResults.map((r) => `${r.schoolCode} (${r.date})`).join(', '));
+    logger.warn('MEAL-PRECACHE', 'Failed schools', { schools: failedResults.map((r) => `${r.schoolCode} (${r.date})`) });
   }
 }

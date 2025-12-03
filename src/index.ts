@@ -2,9 +2,7 @@ import Elysia, { redirect } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { staticPlugin } from '@elysiajs/static';
 import { rateLimit } from 'elysia-rate-limit';
-import fs from 'node:fs/promises';
 import logixlysia from 'logixlysia';
-import path from 'path';
 
 import comcigan from './routes/comcigan';
 import neis from './routes/neis';
@@ -14,10 +12,8 @@ import { refreshCache, refreshSchoolCache, refreshScheduleCache } from './librar
 import { sendFcm } from './libraries/fcm';
 import { precachePopularSchools } from './services/meal-precache';
 import { cleanupOldAccessRecords } from './services/access-tracker';
+import logger from './libraries/logger';
 import cron from '@elysiajs/cron';
-
-const logsDir = path.join(__dirname, '..', 'logs');
-fs.access(logsDir).catch(() => fs.mkdir(logsDir));
 
 import { SUS_VIDEOS, API_CONFIG } from './constants';
 
@@ -96,6 +92,7 @@ export const app = new Elysia()
   })
   .listen(process.env.PORT ?? API_CONFIG.DEFAULT_PORT);
 
+logger.info('SERVER', `Slunch-V2 backend started`, { url: app.server!.url.toString() });
 console.log(`
 🍤 Slunch-V2 backend is running at ${app.server!.url}
 📄 Swagger documentation is available at ${app.server!.url}swagger
