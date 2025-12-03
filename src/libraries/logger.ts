@@ -1,5 +1,6 @@
 import { join } from 'path';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync } from 'node:fs';
+import { $ } from 'bun';
 
 const logsDir = join(__dirname, '..', '..', 'logs');
 
@@ -23,6 +24,80 @@ interface LogEntry {
 function getDateStr(): string {
   const date = new Date();
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getWeekNumber(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+
+function parseDateFromFilename(filename: string): Date | null {
+  const match = filename.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (match) {
+    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+  }
+  return null;
+}
+
+/**
+ * 1주일 지난 로그 파일들을 주 단위로 tar.zst로 압축
+ */
+export async function compressOldLogs(): Promise<void> {
+  try {
+    const files = readdirSync(logsDir);
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const currentWeek = getWeekNumber(now);
+
+    // 주별로 파일 그룹화
+    const weeklyFiles: Map<string, string[]> = new Map();
+
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+
+      const fileDate = parseDateFromFilename(file);
+      if (!fileDate || fileDate >= oneWeekAgo) continue;
+
+      const { year, week } = getWeekNumber(fileDate);
+      // 현재 주는 스킵
+      if (year === currentWeek.year && week === currentWeek.week) continue;
+
+      const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+      if (!weeklyFiles.has(weekKey)) {
+        weeklyFiles.set(weekKey, []);
+      }
+      weeklyFiles.get(weekKey)!.push(file);
+    }
+
+    // 주별로 압축
+    for (const [weekKey, fileList] of weeklyFiles) {
+      const archiveName = `logs_${weekKey}.tar.zst`;
+      const archivePath = join(logsDir, archiveName);
+
+      // 이미 압축 파일이 존재하면 스킵
+      if (existsSync(archivePath)) {
+        console.log(`[LOGGER] Archive already exists: ${archiveName}`);
+        continue;
+      }
+
+      // tar로 묶고 zstd로 압축
+      const fileArgs = fileList.join(' ');
+      await $`cd ${logsDir} && tar -cf - ${fileList} | zstd -19 -o ${archiveName}`;
+
+      // 원본 파일 삭제
+      for (const file of fileList) {
+        unlinkSync(join(logsDir, file));
+      }
+
+      console.log(`[LOGGER] Compressed ${fileList.length} files -> ${archiveName}`);
+    }
+  } catch (error) {
+    console.error('[LOGGER] Failed to compress old logs:', error);
+  }
 }
 
 function getLogFilePath(type: LogType = 'general'): string {

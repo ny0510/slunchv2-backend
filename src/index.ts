@@ -12,7 +12,7 @@ import { refreshCache, refreshSchoolCache, refreshScheduleCache } from './librar
 import { sendFcm } from './libraries/fcm';
 import { precachePopularSchools } from './services/meal-precache';
 import { cleanupOldAccessRecords } from './services/access-tracker';
-import logger from './libraries/logger';
+import logger, { compressOldLogs } from './libraries/logger';
 import cron from '@elysiajs/cron';
 
 import { SUS_VIDEOS, API_CONFIG } from './constants';
@@ -34,6 +34,14 @@ const cleanupAccessRecords = cron({
   pattern: '0 3 * * 0', // 매주 일요일 새벽 3시
   async run() {
     cleanupOldAccessRecords();
+  },
+});
+
+const compressLogs = cron({
+  name: 'compressLogs',
+  pattern: '0 4 * * 0', // 매주 일요일 새벽 4시
+  async run() {
+    await compressOldLogs();
   },
 });
 
@@ -81,6 +89,7 @@ export const app = new Elysia()
   .use(sendFcm)
   .use(mealPrecache)
   .use(cleanupAccessRecords)
+  .use(compressLogs)
 
   .use(comcigan)
   .use(neis)
