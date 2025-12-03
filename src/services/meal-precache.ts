@@ -1,4 +1,5 @@
 import { db } from '../libraries/db';
+import { setCache, cacheExists, CacheCollection } from '../libraries/cache';
 import { DB_COLLECTIONS, ALLERGY_TYPES } from '../constants';
 import { formatDate, getCurrentDateFormatted } from '../utils/validation';
 import { getPopularSchools, cleanupOldAccessRecords } from './access-tracker';
@@ -10,8 +11,6 @@ const neisForPrecache = new Neis({
   key: process.env.NEIS_API_KEY,
   timeout: 15000, // 15초 타임아웃 for precaching
 });
-
-const mealCollection = db.openDB({ name: DB_COLLECTIONS.MEAL });
 
 function parseMealData(dishName: string): MealItem[] {
   return dishName.split('<br/>').map((item) => {
@@ -51,7 +50,7 @@ async function precacheSchoolMeal(schoolCode: string, regionCode: string, date: 
     const cacheKey = `${regionCode}_${schoolCode}_${formatDate(date)}`;
 
     // Skip if already cached
-    if (mealCollection.doesExist(cacheKey)) {
+    if (cacheExists(CacheCollection.MEAL, cacheKey)) {
       return { success: true, schoolCode, date };
     }
 
@@ -96,7 +95,7 @@ async function precacheSchoolMeal(schoolCode: string, regionCode: string, date: 
       };
 
       const key = `${regionCode}_${schoolCode}_${cacheData.date}`;
-      await mealCollection.put(key, cacheData);
+      await setCache(CacheCollection.MEAL, key, cacheData);
       console.log(`Cached meal for ${schoolCode} on ${cacheData.date}`);
     }
     return { success: true, schoolCode, date };

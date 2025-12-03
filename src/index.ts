@@ -10,7 +10,7 @@ import comcigan from './routes/comcigan';
 import neis from './routes/neis';
 import notifications from './routes/notifications';
 import fcm from './routes/fcm';
-import { refreshCache } from './libraries/cache';
+import { refreshCache, refreshSchoolCache, refreshScheduleCache } from './libraries/cache';
 import { sendFcm } from './libraries/fcm';
 import { precachePopularSchools } from './services/meal-precache';
 import { cleanupOldAccessRecords } from './services/access-tracker';
@@ -80,6 +80,8 @@ export const app = new Elysia()
   )
 
   .use(refreshCache)
+  .use(refreshSchoolCache)
+  .use(refreshScheduleCache)
   .use(sendFcm)
   .use(mealPrecache)
   .use(cleanupAccessRecords)

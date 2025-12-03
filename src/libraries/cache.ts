@@ -1,30 +1,74 @@
 import cron, { Patterns } from '@elysiajs/cron';
-import Neis from 'neis.ts';
-
 import { db } from './db';
-import { ALLERGY_TYPES, DB_COLLECTIONS } from '../constants';
-import { handleNeisError } from '../utils/errors';
-import { formatDate } from '../utils/validation';
-import { trackSchoolAccess } from '../services/access-tracker';
-import type { Cache, Meal, SchoolSearchResult, MealItem, Origin, Nutrition } from '../types';
+import { DB_COLLECTIONS } from '../constants';
 
-export const neis = new Neis({
-  key: process.env.NEIS_API_KEY,
-  timeout: 60000, // 1분 타임아웃 (기본값 5초에서 증가)
-});
+// Cache collections
+const collections = {
+  [DB_COLLECTIONS.MEAL]: db.openDB({ name: DB_COLLECTIONS.MEAL }),
+  [DB_COLLECTIONS.SCHOOL]: db.openDB({ name: DB_COLLECTIONS.SCHOOL, dupSort: true }),
+  [DB_COLLECTIONS.SCHOOL_INFORMATION]: db.openDB({ name: DB_COLLECTIONS.SCHOOL_INFORMATION }),
+  [DB_COLLECTIONS.SCHEDULE]: db.openDB({ name: DB_COLLECTIONS.SCHEDULE }),
+};
 
-const mealCollection = db.openDB({ name: DB_COLLECTIONS.MEAL });
-const schoolCollection = db.openDB({ name: DB_COLLECTIONS.SCHOOL, dupSort: true });
-const schoolInformationCollection = db.openDB({ name: DB_COLLECTIONS.SCHOOL_INFORMATION });
+export const CacheCollection = {
+  MEAL: DB_COLLECTIONS.MEAL,
+  SCHOOL: DB_COLLECTIONS.SCHOOL,
+  SCHOOL_INFORMATION: DB_COLLECTIONS.SCHOOL_INFORMATION,
+  SCHEDULE: DB_COLLECTIONS.SCHEDULE,
+} as const;
 
+export type CacheCollectionType = typeof CacheCollection[keyof typeof CacheCollection];
 
+// Cache utility functions
+export function getCache<T>(collection: CacheCollectionType, key: string): T | null {
+  const col = collections[collection];
+  const value = col.get(key) as T | undefined | null;
+  return value ?? null;
+}
+
+export async function setCache<T>(
+  collection: CacheCollectionType,
+  key: string,
+  value: T,
+  allowDuplicate: boolean = false
+): Promise<void> {
+  const col = collections[collection];
+  if (!allowDuplicate && col.doesExist(key)) return;
+  await col.put(key, value);
+}
+
+export function* getCacheRange<T>(
+  collection: CacheCollectionType,
+  start: string,
+  end: string
+): Generator<{ key: string; value: T }> {
+  const col = collections[collection];
+  for (const { key, value } of col.getRange({ start, end })) {
+    yield { key: key as string, value: value as T };
+  }
+}
+
+export function getCacheValues<T>(collection: CacheCollectionType, key: string): T[] {
+  const col = collections[collection];
+  return Array.from(col.getValues(key)) as T[];
+}
+
+export function cacheExists(collection: CacheCollectionType, key: string): boolean {
+  return collections[collection].doesExist(key);
+}
+
+export async function clearCache(collection: CacheCollectionType): Promise<void> {
+  await collections[collection].clearAsync();
+}
+
+// Cron jobs for cache refresh
 export const refreshCache = cron({
   name: 'refresh',
   pattern: Patterns.EVERY_DAY_AT_1AM,
   async run() {
-    console.log('start refresh cache');
-    await mealCollection.clearAsync();
-    console.log('refresh cache finished');
+    console.log('start refresh meal cache');
+    await clearCache(CacheCollection.MEAL);
+    console.log('refresh meal cache finished');
   },
 });
 
@@ -33,175 +77,18 @@ export const refreshSchoolCache = cron({
   pattern: Patterns.EVERY_WEEKEND,
   async run() {
     console.log('start refresh school cache');
-    await schoolCollection.clearAsync();
-    await schoolInformationCollection.clearAsync();
+    await clearCache(CacheCollection.SCHOOL);
+    await clearCache(CacheCollection.SCHOOL_INFORMATION);
     console.log('refresh school cache finished');
   },
 });
 
-function parseMealData(dishName: string): MealItem[] {
-  return dishName.split('<br/>').map((item) => {
-    const [food, allergyCodes] = item.split(' (').map((str) => str.trim());
-    const allergies = allergyCodes
-      ? allergyCodes
-          .replace(')', '')
-          .split('.')
-          .map((code) => ({
-            type: ALLERGY_TYPES[parseInt(code)],
-            code,
-          }))
-      : [];
-    return { food, allergy: allergies };
-  });
-}
-
-function parseOriginData(originInfo: string): Origin[] {
-  return originInfo
-    .split('<br/>')
-    .map((item) => {
-      const [food, origin] = item.split(' : ');
-      return { food, origin };
-    })
-    .filter(({ food }) => food !== '비고');
-}
-
-function parseNutritionData(nutritionInfo: string): Nutrition[] {
-  return nutritionInfo.split('<br/>').map((item) => {
-    const [type, amount] = item.split(' : ');
-    return { type, amount };
-  });
-}
-
-function formatMealResponse(
-  cachedMeal: Cache,
-  showAllergy: boolean,
-  showOrigin: boolean,
-  showNutrition: boolean
-): Meal {
-  return {
-    date: cachedMeal.date,
-    meal: showAllergy
-      ? cachedMeal.meal
-      : cachedMeal.meal.map((v) => v.food),
-    type: cachedMeal.type ?? '',
-    origin: showOrigin ? cachedMeal.origin : undefined,
-    calorie: cachedMeal.calorie ?? '',
-    nutrition: showNutrition ? cachedMeal.nutrition : undefined,
-  };
-}
-
-export async function getMeal(
-  school_code: string,
-  region_code: string,
-  mlsv_ymd: string,
-  showAllergy: boolean = false,
-  showOrigin: boolean = false,
-  showNutrition: boolean = false
-): Promise<Meal[]> {
-  const startTime = Date.now();
-  try {
-    // Track school access for popularity metrics
-    trackSchoolAccess(school_code, region_code);
-
-    const db_date = formatDate(mlsv_ymd);
-    const cacheKey = `${region_code}_${school_code}_${db_date}`;
-
-    const cacheCheckStart = Date.now();
-    const cachedMeal = mealCollection.get(cacheKey) as Cache | undefined | null;
-    console.log(`[MEAL] Cache check took ${Date.now() - cacheCheckStart}ms`);
-
-    if (cachedMeal != null && cachedMeal != undefined) {
-      console.log(`[MEAL] Cache HIT for ${cacheKey} - Total: ${Date.now() - startTime}ms`);
-      return [formatMealResponse(cachedMeal, showAllergy, showOrigin, showNutrition)];
-    }
-
-    console.log(`[MEAL] Cache MISS for ${cacheKey} - Fetching from NEIS API`);
-    const apiStart = Date.now();
-    const fetchedMeals = await neis.getMeal({
-      SD_SCHUL_CODE: school_code,
-      ATPT_OFCDC_SC_CODE: region_code,
-      MLSV_YMD: mlsv_ymd,
-    });
-    console.log(`[MEAL] NEIS API call took ${Date.now() - apiStart}ms`);
-
-    const parseStart = Date.now();
-    const meals: Meal[] = await Promise.all(
-      fetchedMeals.map(async (m) => {
-        const foods = parseMealData(m.DDISH_NM);
-        const origin = parseOriginData(m.ORPLC_INFO);
-        const nutrition = parseNutritionData(m.NTR_INFO);
-
-        const cacheData: Cache = {
-          date: formatDate(m.MLSV_YMD),
-          meal: foods,
-          type: m.MMEAL_SC_NM,
-          origin: origin,
-          calorie: m.CAL_INFO.replace('Kcal', '').trim(),
-          nutrition: nutrition,
-          school_code: school_code,
-          region_code: region_code,
-        };
-
-        const cacheKey = `${region_code}_${school_code}_${cacheData.date}`;
-        if (!mealCollection.doesExist(cacheKey)) {
-          await mealCollection.put(cacheKey, cacheData);
-        }
-
-        return formatMealResponse(cacheData, showAllergy, showOrigin, showNutrition);
-      })
-    );
-    console.log(`[MEAL] Parse & cache took ${Date.now() - parseStart}ms`);
-    console.log(`[MEAL] Total request time: ${Date.now() - startTime}ms`);
-
-    return meals;
-  } catch (e) {
-    handleNeisError(e as Error);
-  }
-}
-
-
-export async function search(schoolName: string): Promise<SchoolSearchResult[]> {
-  const startTime = Date.now();
-
-  const cacheCheckStart = Date.now();
-  const school: string[] = Array.from(schoolCollection.getValues(schoolName));
-  console.log(`[SEARCH] Cache check took ${Date.now() - cacheCheckStart}ms`);
-
-  if (school.length > 0) {
-    console.log(`[SEARCH] Cache HIT for "${schoolName}" - Found ${school.length} schools - Total: ${Date.now() - startTime}ms`);
-    return school.map((s) => schoolInformationCollection.get(s) as SchoolSearchResult).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
-  }
-
-  console.log(`[SEARCH] Cache MISS for "${schoolName}" - Fetching from NEIS API`);
-  try {
-    const apiStart = Date.now();
-    const searchedSchools = await neis.getSchool({
-      SCHUL_NM: schoolName,
-      pSize: 100,
-    });
-    console.log(`[SEARCH] NEIS API call took ${Date.now() - apiStart}ms`);
-
-    const parseStart = Date.now();
-    const schools = searchedSchools
-      .filter((school) => school.SCHUL_KND_SC_NM !== '초등학교')
-      .map((school) => ({
-        schoolName: school.SCHUL_NM,
-        schoolCode: school.SD_SCHUL_CODE,
-        region: school.ATPT_OFCDC_SC_NM,
-        regionCode: school.ATPT_OFCDC_SC_CODE,
-      }));
-
-    const cacheWriteStart = Date.now();
-    for (const school of schools) {
-      await schoolCollection.put(schoolName, school.schoolName);
-      if (schoolInformationCollection.doesExist(school.schoolName)) continue;
-      await schoolInformationCollection.put(school.schoolName, school);
-    }
-    console.log(`[SEARCH] Cache write took ${Date.now() - cacheWriteStart}ms`);
-    console.log(`[SEARCH] Total request time: ${Date.now() - startTime}ms - Found ${schools.length} schools`);
-
-    return schools;
-  } catch (e) {
-    handleNeisError(e as Error);
-  }
-}
+export const refreshScheduleCache = cron({
+  name: 'refreshSchedule',
+  pattern: Patterns.EVERY_DAY_AT_1AM,
+  async run() {
+    console.log('start refresh schedule cache');
+    await clearCache(CacheCollection.SCHEDULE);
+    console.log('refresh schedule cache finished');
+  },
+});

@@ -1,8 +1,8 @@
 import { Elysia, t } from 'elysia';
-import { getMeal, search, neis } from '../libraries/cache';
+import { getMeal, search, getSchedule } from '../libraries/neis';
 import { ERROR_MESSAGES } from '../constants';
-import { validateRequired, validateSchoolParams, validateDateParams, formatDateForApi, formatDate } from '../utils/validation';
-import { handleNeisError } from '../utils/errors';
+import { validateRequired, validateSchoolParams, validateDateParams, formatDateForApi } from '../utils/validation';
+
 
 const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
   .get(
@@ -104,63 +104,13 @@ const app = new Elysia({ prefix: '/neis', tags: ['나이스'] })
       detail: { summary: '급식 정보' },
     }
   )
-  .get(
-    '/schedule',
-    async ({ query }) => {
-      const startTime = Date.now();
+  .get('/schedule', async ({ query }) => {
       const { schoolCode, regionCode, year, month, day } = query;
       validateSchoolParams(schoolCode, regionCode);
       validateDateParams(year, month);
 
-      try {
-        const dateFormatted = formatDateForApi(year!, month!, day);
-        console.log(`[SCHEDULE] Fetching from NEIS API - No cache available`);
-        const apiStart = Date.now();
-        const fetchedSchedules = await neis.getSchedule({
-          SD_SCHUL_CODE: schoolCode!,
-          ATPT_OFCDC_SC_CODE: regionCode!,
-          AA_YMD: dateFormatted,
-        });
-        console.log(`[SCHEDULE] NEIS API call took ${Date.now() - apiStart}ms`);
-
-        const schedulesMap: { [key: string]: { start: string; end: string; schedules: string[] } } = {};
-
-        fetchedSchedules.forEach((s: any) => {
-          if (s.EVENT_NM === '토요휴업일') return;
-
-          const formattedDate = formatDate(s.AA_YMD);
-
-          if (!schedulesMap[formattedDate]) {
-            schedulesMap[formattedDate] = { start: formattedDate, end: formattedDate, schedules: [s.EVENT_NM] };
-          } else {
-            schedulesMap[formattedDate].schedules.push(s.EVENT_NM);
-          }
-        });
-
-        const schedules = Object.entries(schedulesMap).map(([_, { start, end, schedules }]) => ({
-          schedule: schedules.join(', '),
-          date: { start, end },
-        }));
-
-        const combinedSchedules = [];
-        let prevSchedule = null;
-
-        for (const schedule of schedules) {
-          if (prevSchedule && prevSchedule.schedule === schedule.schedule) {
-            prevSchedule.date.end = schedule.date.end;
-          } else {
-            if (prevSchedule) combinedSchedules.push(prevSchedule);
-            prevSchedule = schedule;
-          }
-        }
-
-        if (prevSchedule) combinedSchedules.push(prevSchedule);
-
-        console.log(`[SCHEDULE] Total request time: ${Date.now() - startTime}ms`);
-        return combinedSchedules;
-      } catch (e) {
-        handleNeisError(e as Error);
-      }
+      const dateFormatted = formatDateForApi(year!, month!, day);
+      return getSchedule(schoolCode!, regionCode!, dateFormatted);
     },
     {
       query: t.Object({

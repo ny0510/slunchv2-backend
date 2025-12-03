@@ -51,12 +51,13 @@ export const ERROR_MESSAGES = {
   NOTIFICATION_DELETED: (id: string) => `공지 ${id}가 삭제되었어요.`,
 } as const;
 
-export const SUS_VIDEOS = ['FlUKCD2G0N0', 'jjDL_zySJv4', 'a8uyilHatBA'] as const;
+export const SUS_VIDEOS = ['FlUKCD2G0N0', 'jjDL_zySJv4', 'a8uyilHatBA', 'Jn8gHsEuULY'] as const;
 
 export const DB_COLLECTIONS = {
   MEAL: 'meal',
   SCHOOL: 'school',
   SCHOOL_INFORMATION: 'schoolInformation',
+  SCHEDULE: 'schedule',
   FCM: 'fcm',
   FCM_MEAL: 'fcm_meal',
   FCM_TIMETABLE: 'fcm_timetable',

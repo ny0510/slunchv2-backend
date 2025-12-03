@@ -92,3 +92,18 @@ export interface TimetableItem {
 export interface ErrorResponse {
   message: string;
 }
+
+export interface ScheduleItem {
+  schedule: string;
+  date: {
+    start: string;
+    end: string;
+  };
+}
+
+export interface ScheduleCache {
+  schedules: ScheduleItem[];
+  schoolCode: string;
+  regionCode: string;
+  dateKey: string;
+}
