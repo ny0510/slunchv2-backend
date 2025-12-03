@@ -128,7 +128,9 @@ function writeLog(entry: LogEntry, type: LogType = 'general'): void {
   const filePath = getLogFilePath(type);
   const logs = readExistingLogs(filePath);
   logs.push(entry);
-  Bun.write(filePath, JSON.stringify(logs, null, 2));
+  // 배열 형식 유지, 각 항목은 한 줄로
+  const output = '[\n' + logs.map(log => '  ' + JSON.stringify(log)).join(',\n') + '\n]';
+  Bun.write(filePath, output);
 }
 
 function createLogEntry(level: LogLevel, category: string, message: string, data?: Record<string, any>, duration?: number): LogEntry {
