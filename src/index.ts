@@ -8,6 +8,7 @@ import comcigan from './routes/comcigan';
 import neis from './routes/neis';
 import notifications from './routes/notifications';
 import fcm from './routes/fcm';
+import admin from './routes/admin';
 import { refreshCache, refreshSchoolCache, refreshScheduleCache } from './libraries/cache';
 import { sendFcm } from './libraries/fcm';
 import { precachePopularSchools } from './services/meal-precache';
@@ -95,6 +96,7 @@ export const app = new Elysia()
   .use(neis)
   .use(notifications)
   .use(fcm)
+  .use(admin)
 
   .onError(({ code }) => {
     if (code === 'NOT_FOUND') return redirect(susVideo());
