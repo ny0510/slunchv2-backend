@@ -64,6 +64,10 @@ function formatMealResponse(
   };
 }
 
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
 export async function getMeal(
   school_code: string,
   region_code: string,
@@ -82,9 +86,9 @@ export async function getMeal(
 
     if (isMonthQuery) {
       // 월 단위 조회: 캐시된 모든 급식 중 해당 월의 데이터 확인
-      const year = mlsv_ymd.slice(0, 4);
-      const month = mlsv_ymd.slice(4, 6);
-      const cachePrefix = `${region_code}_${school_code}_${year}-${month}`;
+      const year = parseInt(mlsv_ymd.slice(0, 4));
+      const month = parseInt(mlsv_ymd.slice(4, 6));
+      const cachePrefix = `${region_code}_${school_code}_${year}-${String(month).padStart(2, '0')}`;
       
       const cachedMeals: Meal[] = [];
       for (const { key, value } of getCacheRange(CacheCollection.MEAL, cachePrefix, cachePrefix + '\xFF')) {
@@ -99,6 +103,56 @@ export async function getMeal(
         return cachedMeals.sort((a, b) => a.date.localeCompare(b.date));
       }
       logger.info('NEIS-MEAL', 'Monthly cache MISS - Fetching from NEIS API', { cachePrefix });
+      
+      // NEIS API는 월 단위로 조회할 때 현재 주의 데이터만 반환하므로, 각 날짜별로 조회
+      const daysInMonth = getDaysInMonth(year, month);
+      const meals: Meal[] = [];
+      const apiTimer = logger.startTimer('NEIS-MEAL', 'NEIS API monthly calls');
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayString = String(day).padStart(2, '0');
+        const dateYmd = `${year}${String(month).padStart(2, '0')}${dayString}`;
+        
+        try {
+          const fetchedMeals = await neis.getMeal({
+            SD_SCHUL_CODE: school_code,
+            ATPT_OFCDC_SC_CODE: region_code,
+            MLSV_YMD: dateYmd,
+          });
+
+          const parseStart = Date.now();
+          for (const m of fetchedMeals) {
+            const foods = parseMealData(m.DDISH_NM);
+            const origin = parseOriginData(m.ORPLC_INFO);
+            const nutrition = parseNutritionData(m.NTR_INFO);
+
+            const cacheData: Cache = {
+              date: formatDate(m.MLSV_YMD),
+              meal: foods,
+              type: m.MMEAL_SC_NM,
+              origin: origin,
+              calorie: m.CAL_INFO.replace('Kcal', '').trim(),
+              nutrition: nutrition,
+              school_code: school_code,
+              region_code: region_code,
+            };
+
+            const cacheKey = `${region_code}_${school_code}_${cacheData.date}`;
+            await setCache(CacheCollection.MEAL, cacheKey, cacheData);
+
+            meals.push(formatMealResponse(cacheData, showAllergy, showOrigin, showNutrition));
+          }
+          logger.withDuration('NEIS-MEAL', 'Parse & cache for day', Date.now() - parseStart);
+        } catch (e) {
+          // 해당 날짜에 급식 데이터가 없을 수 있음 (주말 등)
+          logger.debug('NEIS-MEAL', `No meal data for ${dateYmd}`, { error: (e as Error).message });
+        }
+      }
+      
+      apiTimer.end('NEIS API monthly calls completed', { daysCalled: daysInMonth, resultCount: meals.length });
+      logger.withDuration('NEIS-MEAL', 'Total request completed', Date.now() - startTime, { schoolCode: school_code, regionCode: region_code, isMonthly: true });
+      
+      return meals.sort((a, b) => a.date.localeCompare(b.date));
     } else {
       // 일 단위 조회: 기존 로직
       const db_date = formatDate(mlsv_ymd);
@@ -111,44 +165,44 @@ export async function getMeal(
         return [formatMealResponse(cachedMeal, showAllergy, showOrigin, showNutrition)];
       }
       logger.info('NEIS-MEAL', 'Cache MISS - Fetching from NEIS API', { cacheKey });
+
+      const apiTimer = logger.startTimer('NEIS-MEAL', 'NEIS API call');
+      const fetchedMeals = await neis.getMeal({
+        SD_SCHUL_CODE: school_code,
+        ATPT_OFCDC_SC_CODE: region_code,
+        MLSV_YMD: mlsv_ymd,
+      });
+      apiTimer.end('NEIS API call completed');
+
+      const parseStart = Date.now();
+      const meals: Meal[] = await Promise.all(
+        fetchedMeals.map(async (m) => {
+          const foods = parseMealData(m.DDISH_NM);
+          const origin = parseOriginData(m.ORPLC_INFO);
+          const nutrition = parseNutritionData(m.NTR_INFO);
+
+          const cacheData: Cache = {
+            date: formatDate(m.MLSV_YMD),
+            meal: foods,
+            type: m.MMEAL_SC_NM,
+            origin: origin,
+            calorie: m.CAL_INFO.replace('Kcal', '').trim(),
+            nutrition: nutrition,
+            school_code: school_code,
+            region_code: region_code,
+          };
+
+          const cacheKey = `${region_code}_${school_code}_${cacheData.date}`;
+          await setCache(CacheCollection.MEAL, cacheKey, cacheData);
+
+          return formatMealResponse(cacheData, showAllergy, showOrigin, showNutrition);
+        })
+      );
+      logger.withDuration('NEIS-MEAL', 'Parse & cache completed', Date.now() - parseStart);
+      logger.withDuration('NEIS-MEAL', 'Total request completed', Date.now() - startTime, { schoolCode: school_code, regionCode: region_code });
+
+      return meals;
     }
-
-    const apiTimer = logger.startTimer('NEIS-MEAL', 'NEIS API call');
-    const fetchedMeals = await neis.getMeal({
-      SD_SCHUL_CODE: school_code,
-      ATPT_OFCDC_SC_CODE: region_code,
-      MLSV_YMD: mlsv_ymd,
-    });
-    apiTimer.end('NEIS API call completed');
-
-    const parseStart = Date.now();
-    const meals: Meal[] = await Promise.all(
-      fetchedMeals.map(async (m) => {
-        const foods = parseMealData(m.DDISH_NM);
-        const origin = parseOriginData(m.ORPLC_INFO);
-        const nutrition = parseNutritionData(m.NTR_INFO);
-
-        const cacheData: Cache = {
-          date: formatDate(m.MLSV_YMD),
-          meal: foods,
-          type: m.MMEAL_SC_NM,
-          origin: origin,
-          calorie: m.CAL_INFO.replace('Kcal', '').trim(),
-          nutrition: nutrition,
-          school_code: school_code,
-          region_code: region_code,
-        };
-
-        const cacheKey = `${region_code}_${school_code}_${cacheData.date}`;
-        await setCache(CacheCollection.MEAL, cacheKey, cacheData);
-
-        return formatMealResponse(cacheData, showAllergy, showOrigin, showNutrition);
-      })
-    );
-    logger.withDuration('NEIS-MEAL', 'Parse & cache completed', Date.now() - parseStart);
-    logger.withDuration('NEIS-MEAL', 'Total request completed', Date.now() - startTime, { schoolCode: school_code, regionCode: region_code });
-
-    return meals;
   } catch (e) {
     handleNeisError(e as Error);
   }
