@@ -5,8 +5,8 @@ import logger from '../libraries/logger';
 
 const ADMIN_KEY = process.env.ADMIN_KEY;
 
-const verifyAdminKey = (key?: string): void => {
-  if (!key || key !== ADMIN_KEY) {
+const verifyAdminKey = (token?: string): void => {
+  if (!token || token !== ADMIN_KEY) {
     throw new Error(ERROR_MESSAGES.UNAUTHORIZED);
   }
 };
@@ -14,11 +14,11 @@ const verifyAdminKey = (key?: string): void => {
 const app = new Elysia({ prefix: '/admin', tags: ['관리자'] })
   .post(
     '/cache/clear',
-    async ({ query, body }) => {
+    async ({ headers, body }) => {
       const timer = logger.startTimer('ADMIN-CACHE', '/cache/clear');
       
       try {
-        verifyAdminKey(query.key);
+        verifyAdminKey(headers.token);
 
         const { collections: targetCollections } = body;
         const validCollections = ['meal', 'school', 'schoolInformation', 'schedule'];
@@ -67,8 +67,8 @@ const app = new Elysia({ prefix: '/admin', tags: ['관리자'] })
       }
     },
     {
-      query: t.Object({
-        key: t.String({ description: 'Admin API Key' }),
+      headers: t.Object({
+        token: t.String({ description: 'Admin token' }),
       }),
       body: t.Object({
         collections: t.Array(
@@ -97,11 +97,11 @@ const app = new Elysia({ prefix: '/admin', tags: ['관리자'] })
   )
   .post(
     '/cache/clear-all',
-    async ({ query }) => {
+    async ({ headers }) => {
       const timer = logger.startTimer('ADMIN-CACHE', '/cache/clear-all');
       
       try {
-        verifyAdminKey(query.key);
+        verifyAdminKey(headers.token);
 
         const allCollections = [
           CacheCollection.MEAL,
@@ -135,8 +135,8 @@ const app = new Elysia({ prefix: '/admin', tags: ['관리자'] })
       }
     },
     {
-      query: t.Object({
-        key: t.String({ description: 'Admin API Key' }),
+      headers: t.Object({
+        token: t.String({ description: 'Admin token' }),
       }),
       response: {
         200: t.Object({
