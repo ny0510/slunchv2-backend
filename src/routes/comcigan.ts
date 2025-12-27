@@ -7,6 +7,60 @@ import logger from '../libraries/logger';
 
 const comcigan = new Comcigan();
 
+const getClassListHandler = async ({ query }: { query: { schoolCode: number } }) => {
+  const startTime = Date.now();
+  const { schoolCode } = query;
+  validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+
+  try {
+    const timer = logger.startTimer('COMCIGAN-CLASSLIST', 'API call');
+    const timetable = await comcigan.getTimetable(schoolCode);
+    timer.end('API call completed');
+
+    const result = timetable.map((grade, gradeIndex) => ({
+      grade: gradeIndex + 1,
+      classes: grade.map((_, classIndex) => classIndex + 1),
+    }));
+
+    logger.withDuration('COMCIGAN-CLASSLIST', 'Total request completed', Date.now() - startTime, { schoolCode });
+    return result;
+  } catch (e) {
+    handleComciganError(e as Error);
+  }
+};
+
+const getTimetableHandler = async ({ query }: { query: { schoolCode: number; grade: number; class?: number; weekday?: '1' | '2' | '3' | '4' | '5'; nextweek?: boolean } }) => {
+  const startTime = Date.now();
+  const { schoolCode, grade, class: classNum, weekday, nextweek } = query;
+  validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
+  validateRequired(grade, ERROR_MESSAGES.GRADE_REQUIRED);
+
+  try {
+    const timer = logger.startTimer('COMCIGAN-TIMETABLE', 'API call');
+    let result;
+    if (weekday && classNum !== undefined) {
+      // 특정 반의 특정 요일
+      result = await comcigan.getTimetable(schoolCode, grade, Number(classNum), Number(weekday), nextweek);
+    } else if (weekday && classNum === undefined) {
+      // 학년 전체의 특정 요일
+      const fullTimetable = await comcigan.getTimetable(schoolCode, grade, nextweek);
+      const weekdayIndex = Number(weekday) - 1; // '1' -> 0, '2' -> 1, etc.
+      result = fullTimetable.map(gradeClasses => gradeClasses.map(classTimetable => classTimetable[weekdayIndex]));
+    } else if (classNum !== undefined) {
+      // 특정 반의 전체 주
+      result = await comcigan.getTimetable(schoolCode, grade, classNum, nextweek);
+    } else {
+      // 학년 전체의 전체 주
+      result = await comcigan.getTimetable(schoolCode, grade, nextweek);
+    }
+    timer.end('API call completed');
+    logger.withDuration('COMCIGAN-TIMETABLE', 'Total request completed', Date.now() - startTime, { schoolCode, grade, classNum });
+    return result;
+  } catch (e) {
+    handleComciganError(e as Error);
+  }
+};
+
 const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
   .get('/search', async ({ query }) => {
     const startTime = Date.now();
@@ -45,31 +99,12 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
       },
     }
   )
-  .get('/timetable', async ({ query }) => {
-    const startTime = Date.now();
-    const { schoolCode, grade, class: classNum, weekday, nextweek } = query;
-    validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
-    validateRequired(grade, ERROR_MESSAGES.GRADE_REQUIRED);
-    validateRequired(classNum, ERROR_MESSAGES.CLASS_REQUIRED);
-
-    try {
-      const timer = logger.startTimer('COMCIGAN-TIMETABLE', 'API call');
-      const result = weekday ? 
-        await comcigan.getTimetable(schoolCode, grade, classNum, weekday as never as Weekday, nextweek) : 
-        await comcigan.getTimetable(schoolCode, grade, classNum, nextweek);
-
-      timer.end('API call completed');
-      logger.withDuration('COMCIGAN-TIMETABLE', 'Total request completed', Date.now() - startTime, { schoolCode, grade, classNum });
-      return result;
-    } catch (e) {
-      handleComciganError(e as Error);
-    }
-  },
+  .get('/timetable', getTimetableHandler,
     {
       query: t.Object({
         schoolCode: t.Number({ description: '학교 코드' }),
         grade: t.Number({ description: '학년' }),
-        class: t.Number({ description: '반' }),
+        class: t.Optional(t.Number({ description: '반' })),
         weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined })),
         nextweek: t.Optional(t.Boolean({ description: '다음 주 여부', default: false })),
       }),
@@ -127,6 +162,33 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
               ),
               { description: '일주일 시간표' }
             ),
+            t.Array(
+              t.Array(
+              t.Array(
+                t.Union([
+                  t.Object(
+                    {
+                      subject: t.String({ description: '과목', default: '국어' }),
+                      teacher: t.String({ description: '교사', default: '홍길*' }),
+                      changed: t.Literal(false),
+                    },
+                    { description: '변경되지 않은 시간표' }
+                  ),
+                  t.Object(
+                    {
+                      subject: t.String({ description: '과목', default: '국어' }),
+                      teacher: t.String({ description: '교사', default: '홍길*' }),
+                      changed: t.Literal(true),
+                      originalSubject: t.String({ description: '변경 전 과목', default: '수학' }),
+                      originalTeacher: t.String({ description: '변경 전 교사', default: '길홍*' }),
+                    },
+                    { description: '변경된 시간표' }
+                  ),
+                ])
+              ),
+              ),
+              { description: '학년 시간표' }
+            )
           ],
           { description: '시간표' }
         ),
@@ -135,27 +197,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
       },
     }
   )
-  .get('/classList', async ({ query }) => {
-    const startTime = Date.now();
-    const { schoolCode } = query;
-    validateRequired(schoolCode, ERROR_MESSAGES.SCHOOL_CODE_REQUIRED);
-
-    try {
-      const timer = logger.startTimer('COMCIGAN-CLASSLIST', 'API call');
-      const timetable = await comcigan.getTimetable(schoolCode);
-      timer.end('API call completed');
-
-      const result = timetable.map((grade, gradeIndex) => ({
-        grade: gradeIndex + 1,
-        classes: grade.map((_, classIndex) => classIndex + 1),
-      }));
-
-      logger.withDuration('COMCIGAN-CLASSLIST', 'Total request completed', Date.now() - startTime, { schoolCode });
-      return result;
-    } catch (e) {
-      handleComciganError(e as Error);
-    }
-  },
+  .get('/classList', getClassListHandler,
     {
       query: t.Object({
         schoolCode: t.Number({ description: '학교 코드' }),
