@@ -9,19 +9,19 @@
 		"@elysiajs/cron": "^1.4.1",
 		"@elysiajs/static": "^1.4.7",
 		"@elysiajs/swagger": "^1.3.1",
-		"@imnyang/comcigan.ts": "^0.2.0",
+		"@imnyang/comcigan.ts": "^0.3.0",
 		"axios": "^1.13.2",
-		"elysia": "^1.4.19",
+		"elysia": "^1.4.21",
 		"elysia-rate-limit": "^4.4.2",
 		"firebase-admin": "^13.6.0",
 		"form-data": "^4.0.5",
 		"lmdb": "^3.4.4",
-		"logixlysia": "^6.0.1",
+		"logixlysia": "^6.1.0",
 		"neis.ts": "^1.3.0"
 	},
 	"devDependencies": {
-		"@inquirer/prompts": "^8.1.0",
-		"bun-types": "^1.3.5"
+		"@inquirer/prompts": "^8.2.0",
+		"bun-types": "^1.3.6"
 	},
 	"module": "src/index.js"
 }
