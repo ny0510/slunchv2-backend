@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import Comcigan, { School, Weekday } from '@imnyang/comcigan.ts';
+import Comcigan, { School } from '../libraries/comcigan';
 import { ERROR_MESSAGES } from '../constants';
 import { validateRequired } from '../utils/validation';
 import { handleComciganError } from '../utils/errors';
@@ -37,21 +37,22 @@ const getTimetableHandler = async ({ query }: { query: { schoolCode: number; gra
 
   try {
     const timer = logger.startTimer('COMCIGAN-TIMETABLE', 'API call');
+    const useNextweek = nextweek ?? false;
     let result;
     if (weekday && classNum !== undefined) {
       // 특정 반의 특정 요일
-      result = await comcigan.getTimetable(schoolCode, grade, Number(classNum), Number(weekday), nextweek);
+      result = await comcigan.getTimetable(schoolCode, grade, Number(classNum), Number(weekday), useNextweek);
     } else if (weekday && classNum === undefined) {
       // 학년 전체의 특정 요일
-      const fullTimetable = await comcigan.getTimetable(schoolCode, grade, nextweek);
+      const fullTimetable = await comcigan.getTimetable(schoolCode, grade, useNextweek);
       const weekdayIndex = Number(weekday) - 1; // '1' -> 0, '2' -> 1, etc.
-      result = fullTimetable.map(gradeClasses => gradeClasses.map(classTimetable => classTimetable[weekdayIndex]));
+      result = fullTimetable.map((gradeClasses) => gradeClasses.map((classTimetable) => classTimetable[weekdayIndex]));
     } else if (classNum !== undefined) {
       // 특정 반의 전체 주
-      result = await comcigan.getTimetable(schoolCode, grade, classNum, nextweek);
+      result = await comcigan.getTimetable(schoolCode, grade, classNum, useNextweek);
     } else {
       // 학년 전체의 전체 주
-      result = await comcigan.getTimetable(schoolCode, grade, nextweek);
+      result = await comcigan.getTimetable(schoolCode, grade, useNextweek);
     }
     timer.end('API call completed');
     logger.withDuration('COMCIGAN-TIMETABLE', 'Total request completed', Date.now() - startTime, { schoolCode, grade, classNum });
@@ -62,25 +63,27 @@ const getTimetableHandler = async ({ query }: { query: { schoolCode: number; gra
 };
 
 const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
-  .get('/search', async ({ query }) => {
-    const startTime = Date.now();
-    validateRequired(query.schoolName, ERROR_MESSAGES.SCHOOL_NAME_REQUIRED);
+  .get(
+    '/search',
+    async ({ query }) => {
+      const startTime = Date.now();
+      validateRequired(query.schoolName, ERROR_MESSAGES.SCHOOL_NAME_REQUIRED);
 
-    const timer = logger.startTimer('COMCIGAN-SEARCH', 'API call');
-    const searchedSchools: School[] = await comcigan.searchSchools(query.schoolName!);
-    timer.end('API call completed');
+      const timer = logger.startTimer('COMCIGAN-SEARCH', 'API call');
+      const searchedSchools: School[] = await comcigan.searchSchools(query.schoolName!);
+      timer.end('API call completed');
 
-    const result = searchedSchools
-      .filter((school) => school.code !== 0) // 없으면 추가 검색하세요 제외
-      .map((school) => ({
-        schoolName: school.name,
-        schoolCode: school.code,
-        region: school.region.name,
-      }));
+      const result = searchedSchools
+        .filter((school) => school.code !== 0) // 없으면 추가 검색하세요 제외
+        .map((school) => ({
+          schoolName: school.name,
+          schoolCode: school.code,
+          region: school.region.name,
+        }));
 
-    logger.withDuration('COMCIGAN-SEARCH', 'Total request completed', Date.now() - startTime, { resultCount: result.length });
-    return result;
-  },
+      logger.withDuration('COMCIGAN-SEARCH', 'Total request completed', Date.now() - startTime, { resultCount: result.length });
+      return result;
+    },
     {
       query: t.Object({
         schoolName: t.String({ description: '학교 이름' }),
@@ -93,25 +96,50 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
             schoolCode: t.Number({ description: '학교 코드', default: 41896 }),
             region: t.String({ description: '지역', default: '서울' }),
           }),
-          { description: '검색된 학교 목록' }
+          { description: '검색된 학교 목록' },
         ),
         400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
       },
-    }
+    },
   )
-  .get('/timetable', getTimetableHandler,
-    {
-      query: t.Object({
-        schoolCode: t.Number({ description: '학교 코드' }),
-        grade: t.Number({ description: '학년' }),
-        class: t.Optional(t.Number({ description: '반' })),
-        weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined })),
-        nextweek: t.Optional(t.Boolean({ description: '다음 주 여부', default: false })),
-      }),
-      detail: { summary: '시간표 조회' },
-      response: {
-        200: t.Union(
-          [
+  .get('/timetable', getTimetableHandler, {
+    query: t.Object({
+      schoolCode: t.Number({ description: '학교 코드' }),
+      grade: t.Number({ description: '학년' }),
+      class: t.Optional(t.Number({ description: '반' })),
+      weekday: t.Optional(t.UnionEnum(['1', '2', '3', '4', '5'], { description: '요일', default: undefined })),
+      nextweek: t.Optional(t.Boolean({ description: '다음 주 여부', default: false })),
+    }),
+    detail: { summary: '시간표 조회' },
+    response: {
+      200: t.Union(
+        [
+          t.Array(
+            t.Union([
+              t.Object(
+                {
+                  subject: t.String({ description: '과목', default: '국어' }),
+                  teacher: t.String({ description: '교사', default: '홍길*' }),
+                  changed: t.Literal(false),
+                },
+                { description: '변경되지 않은 시간표' },
+              ),
+              t.Object(
+                {
+                  subject: t.String({ description: '과목', default: '국어' }),
+                  teacher: t.String({ description: '교사', default: '홍길*' }),
+                  changed: t.Literal(true),
+                  originalSubject: t.String({ description: '변경 전 과목', default: '수학' }),
+                  originalTeacher: t.String({ description: '변경 전 교사', default: '길홍*' }),
+                },
+                {
+                  description: '변경된 시간표',
+                },
+              ),
+            ]),
+            { description: '하루 시간표' },
+          ),
+          t.Array(
             t.Array(
               t.Union([
                 t.Object(
@@ -120,7 +148,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                     teacher: t.String({ description: '교사', default: '홍길*' }),
                     changed: t.Literal(false),
                   },
-                  { description: '변경되지 않은 시간표' }
+                  { description: '변경되지 않은 시간표' },
                 ),
                 t.Object(
                   {
@@ -130,13 +158,13 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                     originalSubject: t.String({ description: '변경 전 과목', default: '수학' }),
                     originalTeacher: t.String({ description: '변경 전 교사', default: '길홍*' }),
                   },
-                  {
-                    description: '변경된 시간표',
-                  }
+                  { description: '변경된 시간표' },
                 ),
               ]),
-              { description: '하루 시간표' }
             ),
+            { description: '일주일 시간표' },
+          ),
+          t.Array(
             t.Array(
               t.Array(
                 t.Union([
@@ -146,7 +174,7 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                       teacher: t.String({ description: '교사', default: '홍길*' }),
                       changed: t.Literal(false),
                     },
-                    { description: '변경되지 않은 시간표' }
+                    { description: '변경되지 않은 시간표' },
                   ),
                   t.Object(
                     {
@@ -156,66 +184,37 @@ const app = new Elysia({ prefix: '/comcigan', tags: ['컴시간'] })
                       originalSubject: t.String({ description: '변경 전 과목', default: '수학' }),
                       originalTeacher: t.String({ description: '변경 전 교사', default: '길홍*' }),
                     },
-                    { description: '변경된 시간표' }
+                    { description: '변경된 시간표' },
                   ),
-                ])
+                ]),
               ),
-              { description: '일주일 시간표' }
             ),
-            t.Array(
-              t.Array(
-              t.Array(
-                t.Union([
-                  t.Object(
-                    {
-                      subject: t.String({ description: '과목', default: '국어' }),
-                      teacher: t.String({ description: '교사', default: '홍길*' }),
-                      changed: t.Literal(false),
-                    },
-                    { description: '변경되지 않은 시간표' }
-                  ),
-                  t.Object(
-                    {
-                      subject: t.String({ description: '과목', default: '국어' }),
-                      teacher: t.String({ description: '교사', default: '홍길*' }),
-                      changed: t.Literal(true),
-                      originalSubject: t.String({ description: '변경 전 과목', default: '수학' }),
-                      originalTeacher: t.String({ description: '변경 전 교사', default: '길홍*' }),
-                    },
-                    { description: '변경된 시간표' }
-                  ),
-                ])
-              ),
-              ),
-              { description: '학년 시간표' }
-            )
-          ],
-          { description: '시간표' }
-        ),
-        400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-        404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-      },
-    }
-  )
-  .get('/classList', getClassListHandler,
-    {
-      query: t.Object({
-        schoolCode: t.Number({ description: '학교 코드' }),
-      }),
-      detail: { summary: '반 목록 조회' },
-      response: {
-        200: t.Array(
-          t.Object({
-            grade: t.Number({ description: '학년', default: 1 }),
-            classes: t.Array(t.Number({ description: '반', default: 1 }), { description: '반 목록' }),
-          }),
-          { description: '반 목록' }
-        ),
-        400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-        404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-        500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
-      },
-    }
-  );
+            { description: '학년 시간표' },
+          ),
+        ],
+        { description: '시간표' },
+      ),
+      400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+      404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+    },
+  })
+  .get('/classList', getClassListHandler, {
+    query: t.Object({
+      schoolCode: t.Number({ description: '학교 코드' }),
+    }),
+    detail: { summary: '반 목록 조회' },
+    response: {
+      200: t.Array(
+        t.Object({
+          grade: t.Number({ description: '학년', default: 1 }),
+          classes: t.Array(t.Number({ description: '반', default: 1 }), { description: '반 목록' }),
+        }),
+        { description: '반 목록' },
+      ),
+      400: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+      404: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+      500: t.Object({ message: t.String() }, { description: '에러 메시지' }),
+    },
+  });
 
 export default app;
