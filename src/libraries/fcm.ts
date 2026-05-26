@@ -2,10 +2,11 @@ import cron, { Patterns } from '@elysiajs/cron';
 import { db } from './db';
 import admin from 'firebase-admin';
 import { getMeal } from './neis';
-import Comcigan, { Weekday } from '@imnyang/comcigan.ts';
+import Comcigan, { Weekday } from './comcigan';
+import type { Timetable } from './comcigan';
 import { DB_COLLECTIONS } from '../constants';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/validation';
-import type { MealSubscription, TimetableSubscription, KeywordSubscription, MealItem, TimetableItem } from '../types';
+import type { MealSubscription, TimetableSubscription, KeywordSubscription, MealItem } from '../types';
 import logger from './logger';
 
 admin.initializeApp({
@@ -133,13 +134,11 @@ async function sendTimetableNotifications(currentTime: string) {
     if (time === currentTime) {
       try {
         // Get timetable from Comcigan API (dayOfWeek is 1-5 for Monday-Friday)
-        const timetable = (await comcigan.getTimetable(Number(schoolCode), Number(grade), Number(classNum), dayOfWeek as Weekday)) as TimetableItem[];
+        const timetable: Timetable[] = await comcigan.getTimetable(Number(schoolCode), Number(grade), Number(classNum), dayOfWeek as Weekday);
 
         if (timetable && timetable.length > 0) {
           // Filter out empty subjects and '없음' (no class)
-          const validSubjects = timetable
-            .filter((item) => item.subject && item.subject !== '' && item.subject !== '없음')
-            .map((item) => item.subject);
+          const validSubjects = timetable.filter((item) => item.subject && item.subject !== '' && item.subject !== '없음').map((item) => item.subject);
 
           // Only send notification if there are actual subjects (not all '없음')
           if (validSubjects.length > 0) {
@@ -179,7 +178,8 @@ async function sendNotification(token: string, title: string, message: string, t
     logger.fcm.error(token, type, error);
 
     // If token is invalid, remove it from collection
-    if ((error as any)?.code === 'messaging/invalid-registration-token' || (error as any)?.code === 'messaging/registration-token-not-registered') {
+    const errorCode = getErrorCode(error);
+    if (errorCode === 'messaging/invalid-registration-token' || errorCode === 'messaging/registration-token-not-registered') {
       try {
         if (type === 'meal') {
           await mealCollection.remove(token);
@@ -194,4 +194,11 @@ async function sendNotification(token: string, title: string, message: string, t
       }
     }
   }
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+
+  const { code } = error;
+  return typeof code === 'string' ? code : undefined;
 }

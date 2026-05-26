@@ -81,14 +81,6 @@ export interface FcmSubscription {
   regionCode: string;
 }
 
-export interface TimetableItem {
-  subject: string;
-  teacher: string;
-  changed: boolean;
-  originalSubject?: string;
-  originalTeacher?: string;
-}
-
 export interface ErrorResponse {
   message: string;
 }
