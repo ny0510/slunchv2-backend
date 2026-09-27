@@ -1,6 +1,7 @@
 import cron, { Patterns } from '@elysiajs/cron';
 import { db } from './db';
-import admin from 'firebase-admin';
+import { cert, initializeApp } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import { getMeal } from './neis';
 import Comcigan, { Weekday } from './comcigan';
 import type { Timetable } from './comcigan';
@@ -9,8 +10,8 @@ import { getCurrentTimeFormatted, getCurrentDateFormatted } from '../utils/valid
 import type { MealSubscription, TimetableSubscription, KeywordSubscription, MealItem } from '../types';
 import logger from './logger';
 
-admin.initializeApp({
-  credential: admin.credential.cert('serviceAccountKey.json'),
+const app = initializeApp({
+  credential: cert('serviceAccountKey.json'),
 });
 
 const mealCollection = db.openDB({ name: DB_COLLECTIONS.FCM_MEAL });
@@ -172,7 +173,7 @@ async function sendNotification(token: string, title: string, message: string, t
   };
 
   try {
-    await admin.messaging().send(payload);
+    await getMessaging(app).send(payload);
     logger.info('FCM', `${type} notification sent`, { token, type });
   } catch (error) {
     logger.fcm.error(token, type, error);
